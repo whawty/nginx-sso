@@ -1,0 +1,25 @@
+on:
+  release:
+    types: [created]
+
+jobs:
+  releases-matrix:
+    name: Release Go Binary
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux]
+        goarch: ["386", amd64, arm64]
+    steps:
+    - uses: actions/checkout@v3
+    - uses: wangyoucao577/go-release-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        goos: ${{ matrix.goos }}
+        goarch: ${{ matrix.goarch }}
+        project_path: "./cmd/whawty-nginx-sso"
+        binary_name: "whawty-nginx-sso"
+        pre_command: export CGO_ENABLED=0
+        extra_files: AUTHORS LICENSE README.md doc/man/whawty-nginx-sso.8
+        md5sum: false
+        sha256sum: true

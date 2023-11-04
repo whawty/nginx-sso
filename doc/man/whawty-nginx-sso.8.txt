@@ -1,0 +1,85 @@
+whawty-nginx-sso(8)
+===================
+
+NAME
+----
+
+whawty-nginx-sso - simple SSO system for nginx
+
+
+SYNOPSIS
+--------
+
+*whawty-nginx-sso*  '[global options]' *<command>* '[command options]' '[arguments ... ]'
+
+
+DESCRIPTION
+-----------
+
+*whawty-nginx-sso* is a simple daemon that .. tbd ..
+
+
+GLOBAL OPTIONS
+--------------
+
+The following global options can be passed to *whawty-nginx-sso*.
+
+*-h | --help*::
+    Show help text and exit.
+
+*-v | --version*::
+    Print version information and exit.
+
+
+COMMANDS
+--------
+
+Any of the following commands supports *-h | --help* as an option. This will print
+extra help information for the command. All these commands use the auth store directory
+as specified by the global store configuration file.
+
+run '[options]'
+~~~~~~~~~~~~~~~
+
+...tbd...
+
+runsa
+~~~~~
+
+This is basically the same as *run* but expects all sockets to be passed via systemd
+socket activation. *whawty-nginx-sso* will run the web-api on all TCP sockets. All other
+socket types are ignored.
+
+
+SIGNALS
+-------
+
+On HUP *whawty-nginx-sso* tries to reload the configuration. I also runs a basic
+consistency check. If there is any error during that process the old configuration
+will be kept.
+
+
+BUGS
+----
+
+Most likely there are some bugs in *whawty-nginx-sso*. If you find a bug, please let
+the developers know at http://github.com/whawty/nginx-sso. Of course, pull requests
+are preferred.
+
+
+SEE ALSO
+--------
+
+*pam-whawty*(8)
+
+
+AUTHORS
+-------
+
+Christian Pointner <equinox@spreadspace.org>
+
+
+RESOURCES
+---------
+
+Main web site: http://github.com/whawty/nginx-sso
