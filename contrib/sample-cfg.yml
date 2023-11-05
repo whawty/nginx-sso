@@ -3,18 +3,29 @@ cookie:
   name: __Secure-whawty-nignx-sso
   secure: true
   expire: 23h
-  signers:
-  - name: foo
+  keys:
+  - name: foo-priv
     ed25519:
       ## generate with `openssl genpkey -algorithm ED25519`
-      key: |
+      private-key: |
         -----BEGIN PRIVATE KEY-----
         MC4CAQAwBQYDK2VwBCIEIIgITVt9BRor5Dn2v7rQu2I8siicIUGr7+QS9PqNSSXk
         -----END PRIVATE KEY-----
-  # - name: bar
+  # - name: foo-pub
   #   ed25519:
-  #     ## generate with `openssl genpkey -algorithm ED25519 -out ./contrib/bar_ed25519.pem`
-  #     key_file: ./contrib/bar_ed25519.pem
+  #     ## generate with `openssl pkey -pubout` and paste in pem-encoded private key
+  #     public-key: |
+  #       -----BEGIN PUBLIC KEY-----
+  #       MCowBQYDK2VwAyEA7dAVNSCBGIBHsCDX0z1qOsMIrErkgLbgybWW17YkleU=
+  #       -----END PUBLIC KEY-----
+  # - name: bar-priv
+  #   ed25519:
+  #     ## generate with `openssl genpkey -algorithm ED25519 -out ./contrib/bar_ed25519_priv.pem`
+  #     private-key-file: ./contrib/bar_ed25519_priv.pem
+  # - name: bar-pub
+  #   ed25519:
+  #     ## generate with `openssl pkey -in ./contrib/bar_ed25519_priv.pem -pubout -out ./contrib/bar_ed25519_pub.pem`
+  #     public-key-file: ./contrib/bar_ed25519_pub.pem
 
 # web:
 #   tls:

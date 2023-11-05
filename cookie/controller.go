@@ -32,6 +32,8 @@ package cookie
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"time"
 )
 
@@ -39,30 +41,42 @@ const (
 	DefaultExpire = 24 * time.Hour
 )
 
-type SignerConfig struct {
+type SignerVerifierConfig struct {
 	Name    string         `yaml:"name"`
 	Ed25519 *Ed25519Config `yaml:"ed25519"`
 }
 
 type Config struct {
-	Domain  string         `yaml:"domain"`
-	Name    string         `yaml:"name"`
-	Secure  bool           `yaml:"secure"`
-	Expire  time.Duration  `yaml:"expire"`
-	Signers []SignerConfig `yaml:"signers"`
+	Domain string                 `yaml:"domain"`
+	Name   string                 `yaml:"name"`
+	Secure bool                   `yaml:"secure"`
+	Expire time.Duration          `yaml:"expire"`
+	Keys   []SignerVerifierConfig `yaml:"keys"`
 }
 
-type Signer interface {
+type SignerVerifier interface {
+	Algo() string
+	CanSign() bool
 	Sign(payload []byte) ([]byte, error)
 	Verify(payload, signature []byte) error
 }
 
 type Controller struct {
 	conf    *Config
-	signers []Signer
+	keys    []SignerVerifier
+	signer  SignerVerifier
+	infoLog *log.Logger
+	dbgLog  *log.Logger
 }
 
-func NewController(conf *Config) (*Controller, error) {
+func NewController(conf *Config, infoLog, dbgLog *log.Logger) (*Controller, error) {
+	if infoLog == nil {
+		infoLog = log.New(io.Discard, "", 0)
+	}
+	if dbgLog == nil {
+		dbgLog = log.New(io.Discard, "", 0)
+	}
+
 	if conf.Name == "" {
 		conf.Name = "whawty-nginx-sso"
 	}
@@ -70,31 +84,53 @@ func NewController(conf *Config) (*Controller, error) {
 		conf.Expire = DefaultExpire
 	}
 
-	ctrl := &Controller{conf: conf}
-	for _, sc := range conf.Signers {
-		var s Signer
-		if sc.Ed25519 != nil {
-			var err error
-			s, err = NewEd25519Signer(conf.Name+"_"+sc.Name, sc.Ed25519)
-			if err != nil {
-				return nil, fmt.Errorf("cookies: failed to initialize Ed25519 signer '%s': %v", sc.Name, err)
-			}
-		}
-		if s == nil {
-			return nil, fmt.Errorf("cookies: failed to initialize signer '%s': no valid type-specific config found", sc.Name)
-		}
-		ctrl.signers = append(ctrl.signers, s)
+	ctrl := &Controller{conf: conf, infoLog: infoLog, dbgLog: dbgLog}
+	if err := ctrl.initKeys(conf); err != nil {
+		return nil, err
 	}
-	if len(ctrl.signers) < 1 {
-		return nil, fmt.Errorf("cookies: at least one signer must be configured")
+	ctrl.infoLog.Printf("cookie-controller: successfully initialized (%d keys loaded)", len(ctrl.keys))
+	if ctrl.signer == nil {
+		ctrl.infoLog.Printf("cookie-controller: no signing key has been loaded - this instance can only verify cookies")
 	}
 	return ctrl, nil
 }
 
+func (c *Controller) initKeys(conf *Config) (err error) {
+	for _, key := range conf.Keys {
+		var s SignerVerifier
+		if key.Ed25519 != nil {
+			s, err = NewEd25519SignerVerifier(conf.Name+"_"+key.Name, key.Ed25519)
+			if err != nil {
+				return fmt.Errorf("failed to load Ed25519 key '%s': %v", key.Name, err)
+			}
+		}
+		if s == nil {
+			return fmt.Errorf("failed to load key '%s': no valid type-specific config found", key.Name)
+		}
+
+		c.keys = append(c.keys, s)
+		mode := "(verify-only)"
+		if s.CanSign() && c.signer == nil {
+			c.signer = s
+			mode = "(*sign* and verify)"
+		}
+		c.dbgLog.Printf("cookie-controller: loaded %s key '%s' %s", s.Algo(), key.Name, mode)
+	}
+	if len(c.keys) < 1 {
+		return fmt.Errorf("at least one key must be configured")
+	}
+	return
+}
+
 func (c *Controller) Mint(p Payload) (name, value string, err error) {
+	if c.signer == nil {
+		err = fmt.Errorf("no signing key loaded")
+		return
+	}
+
 	p.Expires = time.Now().Add(c.conf.Expire).Unix()
 	v := &Value{payload: p.Encode()}
-	if v.signature, err = c.signers[0].Sign(v.payload); err != nil {
+	if v.signature, err = c.signer.Sign(v.payload); err != nil {
 		return
 	}
 
@@ -109,8 +145,8 @@ func (c *Controller) Verify(value string) (p Payload, err error) {
 		return
 	}
 
-	for _, signer := range c.signers {
-		if err = signer.Verify(v.payload, v.signature); err == nil {
+	for _, key := range c.keys {
+		if err = key.Verify(v.payload, v.signature); err == nil {
 			break
 		}
 	}
