@@ -37,6 +37,7 @@ import (
 
 	"github.com/flosch/pongo2/v6"
 	"github.com/gin-gonic/gin"
+	"github.com/whawty/nginx-sso/cookie"
 	"github.com/whawty/nginx-sso/ui"
 	"gitlab.com/go-box/pongo2gin/v6"
 )
@@ -78,7 +79,7 @@ func webHandleLogout(c *gin.Context) {
 	c.Status(http.StatusNotImplemented)
 }
 
-func runWeb(listener net.Listener, config *WebConfig) (err error) {
+func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller) (err error) {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
@@ -109,7 +110,7 @@ func runWeb(listener net.Listener, config *WebConfig) (err error) {
 	return server.Serve(listener)
 }
 
-func runWebAddr(addr string, config *WebConfig) (err error) {
+func runWebAddr(addr string, config *WebConfig, cookies *cookie.Controller) (err error) {
 	if addr == "" {
 		addr = ":http"
 	}
@@ -117,9 +118,9 @@ func runWebAddr(addr string, config *WebConfig) (err error) {
 	if err != nil {
 		return err
 	}
-	return runWeb(ln.(*net.TCPListener), config)
+	return runWeb(ln.(*net.TCPListener), config, cookies)
 }
 
-func runWebListener(listener *net.TCPListener, config *WebConfig) (err error) {
-	return runWeb(listener, config)
+func runWebListener(listener *net.TCPListener, config *WebConfig, cookies *cookie.Controller) (err error) {
+	return runWeb(listener, config, cookies)
 }

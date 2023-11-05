@@ -28,39 +28,75 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-package main
+package cookie
 
 import (
+	"crypto/ed25519"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
-
-	"github.com/spreadspace/tlsconfig"
-	"github.com/whawty/nginx-sso/cookie"
-	"gopkg.in/yaml.v3"
 )
 
-type WebConfig struct {
-	TLS *tlsconfig.TLSConfig `yaml:"tls"`
+// TODO: split up signer and verifier!!!
+
+type Ed25519Config struct {
+	Key     *string `yaml:"key"`
+	KeyFile *string `yaml:"key_file"`
 }
 
-type Config struct {
-	Web    WebConfig     `yaml:"web"`
-	Cookie cookie.Config `yaml:"cookie"`
+type Ed25519Signer struct {
+	context string
+	priv    ed25519.PrivateKey
+	pub     ed25519.PublicKey
 }
 
-func readConfig(configfile string) (*Config, error) {
-	file, err := os.Open(configfile)
+func NewEd25519Signer(context string, conf *Ed25519Config) (*Ed25519Signer, error) {
+	if conf.Key != nil && conf.KeyFile != nil {
+		return nil, fmt.Errorf("'key' and 'key_file' are mutually exclusive")
+	}
+
+	var keyPem []byte
+	if conf.Key != nil {
+		keyPem = []byte(*conf.Key)
+	}
+	if conf.KeyFile != nil {
+		kf, err := os.Open(*conf.KeyFile)
+		if err != nil {
+			return nil, err
+		}
+		defer kf.Close()
+
+		if keyPem, err = io.ReadAll(kf); err != nil {
+			return nil, err
+		}
+	}
+	if keyPem == nil {
+		return nil, fmt.Errorf("please set 'key' or 'key_file'")
+	}
+
+	pemBlock, _ := pem.Decode(keyPem)
+	if pemBlock == nil {
+		return nil, fmt.Errorf("no valid PEM encoded block found")
+	}
+	keyParsed, err := x509.ParsePKCS8PrivateKey(pemBlock.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("Error opening config file: %s", err)
+		return nil, err
 	}
-	defer file.Close()
-
-	decoder := yaml.NewDecoder(file)
-	decoder.KnownFields(true)
-
-	c := &Config{}
-	if err = decoder.Decode(c); err != nil {
-		return nil, fmt.Errorf("Error parsing config file: %s", err)
+	priv, ok := keyParsed.(ed25519.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("key is not a valid Ed25519 key")
 	}
-	return c, nil
+	pub := priv.Public().(ed25519.PublicKey)
+
+	return &Ed25519Signer{context: context, priv: priv, pub: pub}, nil
+}
+
+func (s Ed25519Signer) Sign(payload []byte) ([]byte, error) {
+	return s.priv.Sign(nil, payload, &ed25519.Options{Context: s.context})
+}
+
+func (s Ed25519Signer) Verify(payload, signature []byte) error {
+	return ed25519.VerifyWithOptions(s.pub, payload, signature, &ed25519.Options{Context: s.context})
 }

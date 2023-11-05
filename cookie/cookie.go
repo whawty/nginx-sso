@@ -28,39 +28,50 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-package main
+package cookie
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"os"
-
-	"github.com/spreadspace/tlsconfig"
-	"github.com/whawty/nginx-sso/cookie"
-	"gopkg.in/yaml.v3"
+	"strings"
 )
 
-type WebConfig struct {
-	TLS *tlsconfig.TLSConfig `yaml:"tls"`
+type Payload struct {
+	Username string
+	Expires  int64
 }
 
-type Config struct {
-	Web    WebConfig     `yaml:"web"`
-	Cookie cookie.Config `yaml:"cookie"`
+func (p Payload) Encode() []byte {
+	payload, _ := json.Marshal(p)
+	return payload
 }
 
-func readConfig(configfile string) (*Config, error) {
-	file, err := os.Open(configfile)
+func (p Payload) Decode(payload []byte) error {
+	return json.Unmarshal(payload, &p)
+}
+
+type Value struct {
+	payload   []byte
+	signature []byte
+}
+
+func (v Value) String() string {
+	return base64.RawURLEncoding.EncodeToString(v.payload) + "." + base64.RawURLEncoding.EncodeToString(v.signature)
+}
+
+func (v Value) FromString(encoded string) (err error) {
+	parts := strings.SplitN(encoded, ".", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid cookie value")
+	}
+	v.payload, err = base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
-		return nil, fmt.Errorf("Error opening config file: %s", err)
+		return fmt.Errorf("invalid cookie value: %v", err)
 	}
-	defer file.Close()
-
-	decoder := yaml.NewDecoder(file)
-	decoder.KnownFields(true)
-
-	c := &Config{}
-	if err = decoder.Decode(c); err != nil {
-		return nil, fmt.Errorf("Error parsing config file: %s", err)
+	v.signature, err = base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid cookie value: %v", err)
 	}
-	return c, nil
+	return
 }
