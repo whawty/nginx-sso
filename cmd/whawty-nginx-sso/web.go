@@ -35,8 +35,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/flosch/pongo2/v6"
 	"github.com/gin-gonic/gin"
 	"github.com/whawty/nginx-sso/ui"
+	"gitlab.com/go-box/pongo2gin/v6"
 )
 
 const (
@@ -47,14 +49,32 @@ const (
 )
 
 func webHandleAuth(c *gin.Context) {
+	// TODO:
+	//  * if cookie is missing or invalid -> return http.StatusUnauthorized
+	//  * return http.StatusOK
 	c.Status(http.StatusNotImplemented)
 }
 
 func webHandleLogin(c *gin.Context) {
-	c.Status(http.StatusNotImplemented)
+	// TODO:
+	//  * if cookie already exists and is still valid -> redirect to service
+	//  * if c.Request.Method == GET -> return login page
+	//  * if c.Request.Method == POST -> get username/password using c.PostForm()
+	//  * if username/password parameters are empty/invalid -> return login page with error
+	//  * verify username/password using configured backend
+	//  * if backend returns an error -> return login page with error
+	//  * if backend returns ok -> generate cookie, set it using c.SetCookie() and redirect to service
+
+	c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
+		"title":    "whawty.nginx-sso Login",
+		"uiPrefix": WebUIPathPrefix,
+	})
 }
 
 func webHandleLogout(c *gin.Context) {
+	// TODO:
+	//  * if cookie does not exist -> redirect to /login
+	//  * remove user info from cookie, update cookie with c.SetCookie(MaxAge=-1) and redirect to /login or service?
 	c.Status(http.StatusNotImplemented)
 }
 
@@ -64,11 +84,15 @@ func runWeb(listener net.Listener, config *WebConfig) (err error) {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.HandleMethodNotAllowed = true
+	r.HTMLRender = pongo2gin.New(pongo2gin.RenderOptions{
+		TemplateSet: pongo2.NewSet("html", pongo2.MustNewHttpFileSystemLoader(ui.Assets, "")),
+		ContentType: "text/html; charset=utf-8"})
 
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, WebLoginPath) })
-	r.StaticFS(WebUIPathPrefix, ui.Assets)
+	r.StaticFS(WebUIPathPrefix, ui.StaticAssets)
 	r.GET(WebAuthPath, webHandleAuth)
 	r.GET(WebLoginPath, webHandleLogin)
+	r.POST(WebLoginPath, webHandleLogin)
 	r.GET(WebLogoutPath, webHandleLogout)
 
 	server := &http.Server{Handler: r, WriteTimeout: 60 * time.Second, ReadTimeout: 60 * time.Second}

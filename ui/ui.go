@@ -30,3 +30,22 @@
 //
 
 package ui
+
+import (
+	"net/http"
+	"os"
+	"path"
+)
+
+type filteredFilesystem struct {
+	base http.FileSystem
+}
+
+func (fs *filteredFilesystem) Open(name string) (http.File, error) {
+	if path.Ext(name) == ".htmpl" {
+		return nil, &os.PathError{Op: "open", Path: name, Err: os.ErrNotExist}
+	}
+	return fs.base.Open(name)
+}
+
+var StaticAssets http.FileSystem = &filteredFilesystem{base: Assets}
