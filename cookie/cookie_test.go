@@ -88,11 +88,18 @@ func TestValueFromString(t *testing.T) {
 	}{
 		{"", false},
 		{"foo", false},
+		{"", false},
 		{".", false},
 		{".bar", false},
 		{"foo.", false},
 		{"foo.bar", true},
 		{"foo.bar.blub", false},
+		{"foo/bar.blub", false},
+		{"foo+bar.blub", false},
+		{"foo.bar/blub", false},
+		{"foo.bar+blub", false},
+		{"foo.bar=", false},
+		{"foo=.bar", false},
 	}
 	for _, vector := range vectors {
 		var v Value

@@ -62,7 +62,7 @@ func loadFile(filename string) ([]byte, error) {
 	return io.ReadAll(f)
 }
 
-func loadPublicKey(conf *Ed25519Config) (ed25519.PublicKey, error) {
+func loadEd25519PublicKey(conf *Ed25519Config) (ed25519.PublicKey, error) {
 	var keyPem []byte
 	if conf.PubKey != nil {
 		keyPem = []byte(*conf.PubKey)
@@ -92,7 +92,7 @@ func loadPublicKey(conf *Ed25519Config) (ed25519.PublicKey, error) {
 	return pub, nil
 }
 
-func loadKeys(conf *Ed25519Config) (ed25519.PrivateKey, ed25519.PublicKey, error) {
+func loadEd25519Keys(conf *Ed25519Config) (ed25519.PrivateKey, ed25519.PublicKey, error) {
 	var keyPem []byte
 	if conf.PrivKey != nil {
 		keyPem = []byte(*conf.PrivKey)
@@ -104,7 +104,7 @@ func loadKeys(conf *Ed25519Config) (ed25519.PrivateKey, ed25519.PublicKey, error
 		}
 	}
 	if keyPem == nil {
-		pub, err := loadPublicKey(conf)
+		pub, err := loadEd25519PublicKey(conf)
 		return nil, pub, err
 	}
 
@@ -132,7 +132,7 @@ func NewEd25519SignerVerifier(context string, conf *Ed25519Config) (*Ed25519Sign
 		return nil, fmt.Errorf("'public-key' and 'public-key-file' are mutually exclusive")
 	}
 
-	priv, pub, err := loadKeys(conf)
+	priv, pub, err := loadEd25519Keys(conf)
 	if err != nil {
 		return nil, err
 	}

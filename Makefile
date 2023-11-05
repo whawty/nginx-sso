@@ -51,8 +51,9 @@ test-verbose: vet
 	$(GOCMD) test -v `$(GOCMD) list ./...`
 
 cover:
-	$(GOCMD) test `$(GOCMD) list ./...` -covermode=count -coverprofile=.coverprofile
-	$(GOCMD) tool cover -html=.coverprofile
+	mkdir -p ./.coverage
+	$(GOCMD) test `$(GOCMD) list ./...` -covermode=count -coverprofile=./.coverage/profile
+	$(GOCMD) tool cover -html=./.coverage/profile -o ./.coverage/out.html
 
 ui:
 	$(GOCMD) generate ./ui
