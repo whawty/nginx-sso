@@ -38,16 +38,16 @@ import (
 )
 
 type Payload struct {
-	Username string
-	Expires  int64
+	Username string `json:"u"`
+	Expires  int64  `json:"e"`
 }
 
-func (p Payload) Encode() []byte {
+func (p *Payload) Encode() []byte {
 	payload, _ := json.Marshal(p)
 	return payload
 }
 
-func (p Payload) Decode(payload []byte) error {
+func (p *Payload) Decode(payload []byte) error {
 	return json.Unmarshal(payload, &p)
 }
 
@@ -56,13 +56,16 @@ type Value struct {
 	signature []byte
 }
 
-func (v Value) String() string {
+func (v *Value) String() string {
 	return base64.RawURLEncoding.EncodeToString(v.payload) + "." + base64.RawURLEncoding.EncodeToString(v.signature)
 }
 
-func (v Value) FromString(encoded string) (err error) {
+func (v *Value) FromString(encoded string) (err error) {
 	parts := strings.SplitN(encoded, ".", 2)
 	if len(parts) != 2 {
+		return fmt.Errorf("invalid cookie value")
+	}
+	if parts[0] == "" || parts[1] == "" {
 		return fmt.Errorf("invalid cookie value")
 	}
 	v.payload, err = base64.RawURLEncoding.DecodeString(parts[0])

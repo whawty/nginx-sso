@@ -47,6 +47,9 @@ vet:
 test: vet
 	$(GOCMD) test `$(GOCMD) list ./...`
 
+test-verbose: vet
+	$(GOCMD) test -v `$(GOCMD) list ./...`
+
 cover:
 	$(GOCMD) test `$(GOCMD) list ./...` -covermode=count -coverprofile=.coverprofile
 	$(GOCMD) tool cover -html=.coverprofile
