@@ -78,7 +78,7 @@ func loadEd25519PublicKey(conf *Ed25519Config) (ed25519.PublicKey, error) {
 	}
 
 	pemBlock, _ := pem.Decode(keyPem)
-	if pemBlock == nil {
+	if pemBlock == nil || pemBlock.Type != "PUBLIC KEY" {
 		return nil, fmt.Errorf("no valid PEM encoded block found")
 	}
 	keyParsed, err := x509.ParsePKIXPublicKey(pemBlock.Bytes)
@@ -109,7 +109,7 @@ func loadEd25519Keys(conf *Ed25519Config) (ed25519.PrivateKey, ed25519.PublicKey
 	}
 
 	pemBlock, _ := pem.Decode(keyPem)
-	if pemBlock == nil {
+	if pemBlock == nil || pemBlock.Type != "PRIVATE KEY" {
 		return nil, nil, fmt.Errorf("no valid PEM encoded block found")
 	}
 	keyParsed, err := x509.ParsePKCS8PrivateKey(pemBlock.Bytes)

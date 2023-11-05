@@ -52,7 +52,7 @@ test-verbose: vet
 
 cover:
 	mkdir -p ./.coverage
-	$(GOCMD) test `$(GOCMD) list ./...` -covermode=count -coverprofile=./.coverage/profile
+	$(GOCMD) test -v `$(GOCMD) list ./...` -covermode=count -coverprofile=./.coverage/profile
 	$(GOCMD) tool cover -html=./.coverage/profile -o ./.coverage/out.html
 
 ui:
