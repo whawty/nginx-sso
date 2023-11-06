@@ -37,6 +37,7 @@ import (
 
 	"github.com/flosch/pongo2/v6"
 	"github.com/gin-gonic/gin"
+	"github.com/whawty/nginx-sso/auth"
 	"github.com/whawty/nginx-sso/cookie"
 	"github.com/whawty/nginx-sso/ui"
 	"gitlab.com/go-box/pongo2gin/v6"
@@ -51,6 +52,7 @@ const (
 
 type HandlerContext struct {
 	cookies *cookie.Controller
+	auth    auth.Backend
 }
 
 func (h *HandlerContext) webHandleAuth(c *gin.Context) {
@@ -71,17 +73,27 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 	//  * if backend returns an error -> return login page with error
 	//  * if backend returns ok -> generate cookie, set it using c.SetCookie() and redirect to service
 
-	value, opts, err := h.cookies.Mint(cookie.Payload{Username: "foo"})
+	username, password, ok := c.Request.BasicAuth()
+	if !ok {
+		c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
+			"title":    "whawty.nginx-sso Login",
+			"uiPrefix": WebUIPathPrefix,
+		})
+		return
+	}
+
+	err := h.auth.Authenticate(username, password)
 	if err != nil {
 		c.Status(http.StatusUnauthorized)
 		return
 	}
-	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
 
-	c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
-		"title":    "whawty.nginx-sso Login",
-		"uiPrefix": WebUIPathPrefix,
-	})
+	value, opts, err := h.cookies.Mint(cookie.Payload{Username: "foo"})
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
 }
 
 func (h *HandlerContext) webHandleLogout(c *gin.Context) {
@@ -91,7 +103,7 @@ func (h *HandlerContext) webHandleLogout(c *gin.Context) {
 	c.Status(http.StatusNotImplemented)
 }
 
-func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller) (err error) {
+func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
@@ -104,7 +116,7 @@ func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, WebLoginPath) })
 	r.StaticFS(WebUIPathPrefix, ui.StaticAssets)
 
-	h := &HandlerContext{cookies: cookies}
+	h := &HandlerContext{cookies: cookies, auth: auth}
 	r.GET(WebAuthPath, h.webHandleAuth)
 	r.GET(WebLoginPath, h.webHandleLogin)
 	r.POST(WebLoginPath, h.webHandleLogin)
@@ -124,7 +136,7 @@ func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller
 	return server.Serve(listener)
 }
 
-func runWebAddr(addr string, config *WebConfig, cookies *cookie.Controller) (err error) {
+func runWebAddr(addr string, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
 	if addr == "" {
 		addr = ":http"
 	}
@@ -132,9 +144,9 @@ func runWebAddr(addr string, config *WebConfig, cookies *cookie.Controller) (err
 	if err != nil {
 		return err
 	}
-	return runWeb(ln.(*net.TCPListener), config, cookies)
+	return runWeb(ln.(*net.TCPListener), config, cookies, auth)
 }
 
-func runWebListener(listener *net.TCPListener, config *WebConfig, cookies *cookie.Controller) (err error) {
-	return runWeb(listener, config, cookies)
+func runWebListener(listener *net.TCPListener, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
+	return runWeb(listener, config, cookies, auth)
 }

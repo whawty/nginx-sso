@@ -28,41 +28,32 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-package main
+package auth
 
 import (
 	"fmt"
-	"os"
-
-	"github.com/spreadspace/tlsconfig"
-	"github.com/whawty/nginx-sso/auth"
-	"github.com/whawty/nginx-sso/cookie"
-	"gopkg.in/yaml.v3"
+	"io"
+	"log"
 )
 
-type WebConfig struct {
-	TLS *tlsconfig.TLSConfig `yaml:"tls"`
-}
-
 type Config struct {
-	Web    WebConfig     `yaml:"web"`
-	Cookie cookie.Config `yaml:"cookie"`
-	Auth   auth.Config   `yaml:"auth"`
+	Whawty *WhawtyAuthConfig `yaml:"whawty"`
 }
 
-func readConfig(configfile string) (*Config, error) {
-	file, err := os.Open(configfile)
-	if err != nil {
-		return nil, fmt.Errorf("Error opening config file: %s", err)
-	}
-	defer file.Close()
+type Backend interface {
+	Authenticate(username, password string) error
+}
 
-	decoder := yaml.NewDecoder(file)
-	decoder.KnownFields(true)
-
-	c := &Config{}
-	if err = decoder.Decode(c); err != nil {
-		return nil, fmt.Errorf("Error parsing config file: %s", err)
+func NewBackend(conf *Config, infoLog, dbgLog *log.Logger) (Backend, error) {
+	if infoLog == nil {
+		infoLog = log.New(io.Discard, "", 0)
 	}
-	return c, nil
+	if dbgLog == nil {
+		dbgLog = log.New(io.Discard, "", 0)
+	}
+
+	if conf.Whawty != nil {
+		return NewWhawtyAuthBackend(conf.Whawty, infoLog, dbgLog)
+	}
+	return nil, fmt.Errorf("no valid authentication backend found in configuration")
 }

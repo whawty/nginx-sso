@@ -29,6 +29,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/urfave/cli v1.22.14 // indirect
+	github.com/whawty/auth v0.0.0-20231022191511-61550f485af0 // indirect
 	gitlab.com/go-box/pongo2gin/v6 v6.0.4 // indirect
 	golang.org/x/arch v0.5.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
@@ -36,5 +37,6 @@ require (
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
+	gopkg.in/spreadspace/scryptauth.v2 v2.0.0-20160119001838-d2c0fcba7783 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

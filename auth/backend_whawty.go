@@ -28,41 +28,51 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-package main
+package auth
 
 import (
 	"fmt"
-	"os"
+	"log"
 
-	"github.com/spreadspace/tlsconfig"
-	"github.com/whawty/nginx-sso/auth"
-	"github.com/whawty/nginx-sso/cookie"
-	"gopkg.in/yaml.v3"
+	"github.com/whawty/auth/store"
 )
 
-type WebConfig struct {
-	TLS *tlsconfig.TLSConfig `yaml:"tls"`
+type WhawtyAuthConfig struct {
+	ConfigFile string `yaml:"store"`
 }
 
-type Config struct {
-	Web    WebConfig     `yaml:"web"`
-	Cookie cookie.Config `yaml:"cookie"`
-	Auth   auth.Config   `yaml:"auth"`
+type WhawtyAuthBackend struct {
+	store   *store.Dir
+	infoLog *log.Logger
+	dbgLog  *log.Logger
 }
 
-func readConfig(configfile string) (*Config, error) {
-	file, err := os.Open(configfile)
+func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (Backend, error) {
+	s, err := store.NewDirFromConfig(conf.ConfigFile)
 	if err != nil {
-		return nil, fmt.Errorf("Error opening config file: %s", err)
+		infoLog.Printf("whawty-auth: failed to intialize store: %v", err)
+		return nil, err
 	}
-	defer file.Close()
-
-	decoder := yaml.NewDecoder(file)
-	decoder.KnownFields(true)
-
-	c := &Config{}
-	if err = decoder.Decode(c); err != nil {
-		return nil, fmt.Errorf("Error parsing config file: %s", err)
+	if err = s.Check(); err != nil {
+		infoLog.Printf("whawty-auth: failed to intialize store: %v", err)
+		return nil, err
 	}
-	return c, nil
+
+	b := &WhawtyAuthBackend{store: s, infoLog: infoLog, dbgLog: dbgLog}
+	infoLog.Printf("whawty-auth: successfully intialized store at %s (%d parameter-sets loaded)", s.BaseDir, len(s.Params))
+	return b, nil
+}
+
+func (w *WhawtyAuthBackend) Authenticate(username, password string) error {
+	ok, _, upgradeable, _, err := w.store.Authenticate(username, password)
+	if upgradeable {
+		w.dbgLog.Printf("whawty-auth: password-hash for user '%s' is upgradable, but upgrades are not implemented yet!")
+	}
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("invalid username or password")
+	}
+	return nil
 }

@@ -88,6 +88,8 @@ github.com/ugorji/go/codec v1.2.11 h1:BMaWp1Bb6fHwEtbplGBGJ498wD+LKlNSl25MjdZY4d
 github.com/ugorji/go/codec v1.2.11/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/urfave/cli v1.22.14 h1:ebbhrRiGK2i4naQJr+1Xj92HXZCrK7MsyTS/ob3HnAk=
 github.com/urfave/cli v1.22.14/go.mod h1:X0eDS6pD6Exaclxm99NJ3FiCDRED7vIHpx2mDOHLvkA=
+github.com/whawty/auth v0.0.0-20231022191511-61550f485af0 h1:pcTCBjcaGDMiH0OaYQa84+rvzyXTMIVwlLsQtXeYQZY=
+github.com/whawty/auth v0.0.0-20231022191511-61550f485af0/go.mod h1:Ot/4GsaoLkeuTSTxPeyljXaTiaCNzsoK8ME4yo1/uYo=
 gitlab.com/go-box/pongo2gin/v6 v6.0.4 h1:eybEL5q6Sx5fLpDfGP2S9UVWrJfH7otqt7Vljifhqe8=
 gitlab.com/go-box/pongo2gin/v6 v6.0.4/go.mod h1:W1LxE/TtkQjIAr3fGXPVdVplGWz2sbc77cU+xZ+a60Q=
 golang.org/x/arch v0.0.0-20210923205945-b76863e36670/go.mod h1:5om86z9Hs0C8fWVUuoMHwpExlXzs5Tkyp9hOrfG7pp8=
@@ -121,6 +123,8 @@ google.golang.org/protobuf v1.30.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqw
 google.golang.org/protobuf v1.31.0 h1:g0LDEJHgrBl9N9r17Ru3sqWhkIx2NB67okBHPwC7hs8=
 google.golang.org/protobuf v1.31.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/spreadspace/scryptauth.v2 v2.0.0-20160119001838-d2c0fcba7783 h1:jFQjb0EX7KZbncFa2MA3nTmtvijJLa76dp0gZKCpti4=
+gopkg.in/spreadspace/scryptauth.v2 v2.0.0-20160119001838-d2c0fcba7783/go.mod h1:QqRNRCGuO4kuPa4MzrCXhA0+bvGze0vXYS6tM1MKeEE=
 gopkg.in/yaml.v2 v2.4.0/go.mod h1:RDklbk79AGWmwhnvt/jBztapEOGDOx6ZbXqjP6csGnQ=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

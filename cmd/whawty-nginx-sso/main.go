@@ -38,6 +38,7 @@ import (
 	"sync"
 
 	"github.com/urfave/cli"
+	"github.com/whawty/nginx-sso/auth"
 	"github.com/whawty/nginx-sso/cookie"
 )
 
@@ -63,6 +64,11 @@ func cmdRun(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 2)
 	}
 
+	auth, err := auth.NewBackend(&conf.Auth, wl, wdl)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 2)
+	}
+
 	webAddrs := c.StringSlice("web-addr")
 	var wg sync.WaitGroup
 	for _, webAddr := range webAddrs {
@@ -70,7 +76,7 @@ func cmdRun(c *cli.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := runWebAddr(a, &conf.Web, cookies); err != nil {
+			if err := runWebAddr(a, &conf.Web, cookies, auth); err != nil {
 				fmt.Printf("warning running web interface(%s) failed: %s\n", a, err)
 			}
 		}()

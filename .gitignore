@@ -1,3 +1,4 @@
 /whawty-nginx-sso
 /cmd/whawty-nginx-sso/whawty-nginx-sso
 /.coverage/
+/contrib/whawty-auth-store

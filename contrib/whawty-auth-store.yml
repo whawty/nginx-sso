@@ -1,0 +1,9 @@
+basedir: "contrib/whawty-auth-store"
+default: 20
+params:
+  - id: 20
+    argon2id:
+      time: 1
+      memory: 65536 ## 64 MB
+      threads: 4
+      length: 32
