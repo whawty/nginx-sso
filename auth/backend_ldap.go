@@ -44,6 +44,7 @@ type LDAPConfig struct {
 	UserSearchBase    string `yaml:"user_search_base"`
 	UserSearchFilter  string `yaml:"user_search_filter"`
 	UsernameAttribute string `yaml:"username_attribute"`
+	// TODO: TLS
 }
 
 type LDAPBackend struct {
@@ -69,6 +70,6 @@ func NewLDAPBackend(conf *LDAPConfig, infoLog, dbgLog *log.Logger) (Backend, err
 }
 
 func (w *LDAPBackend) Authenticate(username, password string) error {
-	// TODO: implement this!
+	// TODO: implement this: https://pkg.go.dev/gopkg.in/ldap.v3#example-package-UserAuthentication
 	return fmt.Errorf("not yet implemented")
 }
