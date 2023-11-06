@@ -30,6 +30,14 @@ cookie:
 auth:
   whawty:
     store: contrib/whawty-auth-store.yml
+  # ldap:
+  #   server: ldaps://ldap.example.com
+  #   root_dn: "dc=example,dc=com"
+  #   manager_dn: "dn=manager,dc=example,dc=com"
+  #   manager_password: "secret"
+  #   user_search_base: "out=People,dc=example,dc=com"
+  #   user_search_filter: "(&(inetOrgPerson)(uid={0}))"
+  #   username_attribute: "uid"
 
 web:
   login:

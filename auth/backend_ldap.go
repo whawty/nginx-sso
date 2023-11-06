@@ -32,32 +32,43 @@ package auth
 
 import (
 	"fmt"
-	"io"
 	"log"
+	//	"github.com/go-ldap/ldap/v3"
 )
 
-type Config struct {
-	LDAP   *LDAPConfig       `yaml:"ldap"`
-	Whawty *WhawtyAuthConfig `yaml:"whawty"`
+type LDAPConfig struct {
+	Server            string `yaml:"server"`
+	RootDN            string `yaml:"root_dn"`
+	ManagerDN         string `yaml:"manager_dn"`
+	ManagerPassword   string `yaml:"manager_password"`
+	UserSearchBase    string `yaml:"user_search_base"`
+	UserSearchFilter  string `yaml:"user_search_filter"`
+	UsernameAttribute string `yaml:"username_attribute"`
 }
 
-type Backend interface {
-	Authenticate(username, password string) error
+type LDAPBackend struct {
+	conf    *LDAPConfig
+	infoLog *log.Logger
+	dbgLog  *log.Logger
 }
 
-func NewBackend(conf *Config, infoLog, dbgLog *log.Logger) (Backend, error) {
-	if infoLog == nil {
-		infoLog = log.New(io.Discard, "", 0)
+func NewLDAPBackend(conf *LDAPConfig, infoLog, dbgLog *log.Logger) (Backend, error) {
+	if conf.UserSearchBase == "" {
+		conf.UserSearchBase = conf.RootDN
 	}
-	if dbgLog == nil {
-		dbgLog = log.New(io.Discard, "", 0)
+	if conf.UserSearchFilter == "" {
+		conf.UserSearchFilter = "(&(inetOrgPerson)(uid={0}))"
+	}
+	if conf.UsernameAttribute == "" {
+		conf.UsernameAttribute = "uid"
 	}
 
-	if conf.LDAP != nil {
-		return NewLDAPBackend(conf.LDAP, infoLog, dbgLog)
-	}
-	if conf.Whawty != nil {
-		return NewWhawtyAuthBackend(conf.Whawty, infoLog, dbgLog)
-	}
-	return nil, fmt.Errorf("no valid authentication backend found in configuration")
+	b := &LDAPBackend{conf: conf, infoLog: infoLog, dbgLog: dbgLog}
+	infoLog.Printf("ldap: successfully intialized")
+	return b, nil
+}
+
+func (w *LDAPBackend) Authenticate(username, password string) error {
+	// TODO: implement this!
+	return fmt.Errorf("not yet implemented")
 }
