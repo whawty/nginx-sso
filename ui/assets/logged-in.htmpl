@@ -1,0 +1,49 @@
+<!DOCTYPE HTML>
+<html lang="en">
+  <head>
+    <title>{{ login.Title }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="whawty nginx-sso login">
+    <meta name="author" content="Christian Pointner <equinox@spreadspace.org>">
+
+    <link href="{{ login.UIPath }}bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ login.UIPath }}fontawesome/css/fontawesome.min.css" rel="stylesheet">
+    <link href="{{ login.UIPath }}fontawesome/css/solid.min.css" rel="stylesheet">
+    <link href="{{ login.UIPath }}css/main.css" rel="stylesheet">
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="topspacer">&nbsp;</div>
+
+      <div id="user-view">
+        <div class="row">
+          <div class="col-md-4"></div>
+            <div class="col-md-4">
+              <h1>User: <strong class="username">{{ username }}</strong></h1>
+            </div>
+            <div class="col-md-4"></div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4"></div>
+            <div class="col-md-4">
+              expires: <strong class="expires">{{ expires | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
+            </div>
+            <div class="col-md-4"></div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4"></div>
+            <div class="col-md-4">
+              <form method="get" action="/logout">
+                <button type="submit" class="btn btn-danger btn-lg"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
+              </form>
+            </div>
+            <div class="col-md-4"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

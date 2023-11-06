@@ -9,7 +9,7 @@ body {
 
 /*
  *
- * Login
+ * login
  *
  */
 .loginspacer {
@@ -56,4 +56,17 @@ body {
   margin-bottom: 10px;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
+}
+
+/*
+ *
+ * logged-in
+ *
+ */
+.topspacer {
+  padding-top: 70px;
+}
+
+#user-view .btn {
+  margin-top: 2em;
 }

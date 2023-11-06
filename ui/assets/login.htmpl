@@ -10,7 +10,7 @@
     <link href="{{ login.UIPath }}bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ login.UIPath }}fontawesome/css/fontawesome.min.css" rel="stylesheet">
     <link href="{{ login.UIPath }}fontawesome/css/solid.min.css" rel="stylesheet">
-    <link href="{{ login.UIPath }}css/login.css" rel="stylesheet">
+    <link href="{{ login.UIPath }}css/main.css" rel="stylesheet">
   </head>
   <body>
     <div class="container-fluid">

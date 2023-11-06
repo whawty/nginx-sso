@@ -106,7 +106,7 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 		return
 	}
 
-	value, opts, err := h.cookies.Mint(cookie.Payload{Username: "foo"})
+	value, opts, err := h.cookies.Mint(cookie.Payload{Username: username})
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
 			"login":    h.conf.Login,
@@ -118,8 +118,11 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
 
 	if redirect == "" {
-		// TODO: show HTML site with username info and link to logout
-		c.Data(http.StatusOK, "text/plain", []byte("successfully logged in as: "+username))
+		c.HTML(http.StatusBadRequest, "logged-in.htmpl", pongo2.Context{
+			"login":    h.conf.Login,
+			"username": username,
+			"expires":  time.Now().Add(time.Duration(opts.MaxAge) * time.Second),
+		})
 		return
 	}
 	c.Redirect(http.StatusTemporaryRedirect, redirect)
@@ -128,7 +131,7 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 func (h *HandlerContext) webHandleLogout(c *gin.Context) {
 	opts := h.cookies.Options()
 	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
-
+	c.Redirect(http.StatusSeeOther, WebLoginPath)
 }
 
 func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
