@@ -66,7 +66,7 @@ func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (
 func (w *WhawtyAuthBackend) Authenticate(username, password string) error {
 	ok, _, upgradeable, _, err := w.store.Authenticate(username, password)
 	if upgradeable {
-		w.dbgLog.Printf("whawty-auth: password-hash for user '%s' is upgradable, but upgrades are not implemented yet!")
+		w.dbgLog.Printf("whawty-auth: password-hash for user '%s' is upgradable, but upgrades are not implemented yet!", username)
 	}
 	if err != nil {
 		return err
