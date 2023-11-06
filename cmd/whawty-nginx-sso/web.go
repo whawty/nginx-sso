@@ -31,6 +31,7 @@
 package main
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"time"
@@ -56,14 +57,23 @@ type HandlerContext struct {
 	auth    auth.Backend
 }
 
-func (h *HandlerContext) webHandleAuth(c *gin.Context) {
+func (h *HandlerContext) webVerifyCookie(c *gin.Context) (*cookie.Payload, error) {
 	cookie, err := c.Cookie(h.cookies.Options().Name)
-	if err != nil || cookie == "" {
-		c.Data(http.StatusUnauthorized, "text/plain", []byte("no cookie found"))
-		return
+	if err != nil {
+		return nil, err
 	}
-
+	if cookie == "" {
+		return nil, errors.New("no cookie found")
+	}
 	session, err := h.cookies.Verify(cookie)
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (h *HandlerContext) webHandleAuth(c *gin.Context) {
+	session, err := h.webVerifyCookie(c)
 	if err != nil {
 		c.Data(http.StatusUnauthorized, "text/plain", []byte(err.Error()))
 		return
@@ -72,18 +82,27 @@ func (h *HandlerContext) webHandleAuth(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (h *HandlerContext) webHandleLogin(c *gin.Context) {
-	// TODO: check if cookie already exists and return html with username info and link to logout
-
-	if c.Request.Method == http.MethodGet {
-		redirect, _ := c.GetQuery("redir")
-		c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
+func (h *HandlerContext) webHandleLoginGet(c *gin.Context) {
+	session, err := h.webVerifyCookie(c)
+	if err == nil && session != nil {
+		// TODO: follow redir?
+		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
 			"login":    h.conf.Login,
-			"redirect": redirect,
+			"username": session.Username,
+			"expires":  time.Unix(session.Expires, 0),
 		})
 		return
 	}
 
+	redirect, _ := c.GetQuery("redir")
+	c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
+		"login":    h.conf.Login,
+		"redirect": redirect,
+	})
+	return
+}
+
+func (h *HandlerContext) webHandleLoginPost(c *gin.Context) {
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 	redirect := c.PostForm("redirect")
@@ -118,7 +137,7 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
 
 	if redirect == "" {
-		c.HTML(http.StatusBadRequest, "logged-in.htmpl", pongo2.Context{
+		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
 			"login":    h.conf.Login,
 			"username": username,
 			"expires":  time.Now().Add(time.Duration(opts.MaxAge) * time.Second),
@@ -131,7 +150,7 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 func (h *HandlerContext) webHandleLogout(c *gin.Context) {
 	opts := h.cookies.Options()
 	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
-	c.Redirect(http.StatusSeeOther, WebLoginPath)
+	c.Redirect(http.StatusSeeOther, WebLoginPath) // TODO follow redir??
 }
 
 func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
@@ -166,8 +185,8 @@ func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller
 
 	h := &HandlerContext{conf: config, cookies: cookies, auth: auth}
 	r.GET(WebAuthPath, h.webHandleAuth)
-	r.GET(WebLoginPath, h.webHandleLogin)
-	r.POST(WebLoginPath, h.webHandleLogin)
+	r.GET(WebLoginPath, h.webHandleLoginGet)
+	r.POST(WebLoginPath, h.webHandleLoginPost)
 	r.GET(WebLogoutPath, h.webHandleLogout)
 
 	server := &http.Server{Handler: r, WriteTimeout: 60 * time.Second, ReadTimeout: 60 * time.Second}
