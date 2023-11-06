@@ -1,7 +1,7 @@
 cookie:
-  domain: example.com
-  name: __Secure-whawty-nignx-sso
-  secure: true
+  # domain: example.com
+  # name: __Secure-whawty-nignx-sso
+  # secure: true
   expire: 23h
   keys:
   - name: foo-priv

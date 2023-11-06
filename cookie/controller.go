@@ -48,8 +48,8 @@ type SignerVerifierConfig struct {
 }
 
 type Config struct {
-	Domain string                 `yaml:"domain"`
 	Name   string                 `yaml:"name"`
+	Domain string                 `yaml:"domain"`
 	Secure bool                   `yaml:"secure"`
 	Expire time.Duration          `yaml:"expire"`
 	Keys   []SignerVerifierConfig `yaml:"keys"`
@@ -134,6 +134,11 @@ func (c *Controller) initKeys(conf *Config) (err error) {
 	if len(c.keys) < 1 {
 		return fmt.Errorf("at least one key must be configured")
 	}
+	return
+}
+
+func (c *Controller) Options() (opts Options) {
+	opts.fromConfig(c.conf)
 	return
 }
 

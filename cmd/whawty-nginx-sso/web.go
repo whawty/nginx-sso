@@ -56,51 +56,70 @@ type HandlerContext struct {
 }
 
 func (h *HandlerContext) webHandleAuth(c *gin.Context) {
-	// TODO:
-	//  * if cookie is missing or invalid -> return http.StatusUnauthorized
-	//  * return http.StatusOK
+	cookie, err := c.Cookie(h.cookies.Options().Name)
+	if err != nil || cookie == "" {
+		c.Data(http.StatusUnauthorized, "text/plain", []byte("no cookie found"))
+		return
+	}
 
-	c.Status(http.StatusNotImplemented)
+	session, err := h.cookies.Verify(cookie)
+	if err != nil {
+		c.Data(http.StatusUnauthorized, "text/plain", []byte(err.Error()))
+		return
+	}
+	c.Header("X-Username", session.Username)
+	c.Status(http.StatusOK)
 }
 
 func (h *HandlerContext) webHandleLogin(c *gin.Context) {
-	// TODO:
-	//  * if cookie already exists and is still valid -> redirect to service
-	//  * if c.Request.Method == GET -> return login page
-	//  * if c.Request.Method == POST -> get username/password using c.PostForm()
-	//  * if username/password parameters are empty/invalid -> return login page with error
-	//  * verify username/password using configured backend
-	//  * if backend returns an error -> return login page with error
-	//  * if backend returns ok -> generate cookie, set it using c.SetCookie() and redirect to service
+	// TODO: check if cookie already exists and return html with username info and link to logout
 
-	username, password, ok := c.Request.BasicAuth()
-	if !ok {
+	if c.Request.Method == http.MethodGet {
+		redirect, _ := c.GetQuery("redir")
 		c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
 			"title":    "whawty.nginx-sso Login",
 			"uiPrefix": WebUIPathPrefix,
+			"redirect": redirect,
 		})
+		return
+	}
+
+	username := c.PostForm("username")
+	password := c.PostForm("password")
+	redirect := c.PostForm("redirect")
+	if username == "" || password == "" {
+		// TODO: show login template again (with error message)
+		c.Data(http.StatusBadRequest, "text/plain", []byte("Missing at least one of: username, password"))
 		return
 	}
 
 	err := h.auth.Authenticate(username, password)
 	if err != nil {
-		c.Status(http.StatusUnauthorized)
+		// TODO: show login template again (with error message)
+		c.Data(http.StatusBadRequest, "text/plain", []byte("login failed: "+err.Error()))
 		return
 	}
 
 	value, opts, err := h.cookies.Mint(cookie.Payload{Username: "foo"})
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
+		// TODO: show login template again (with error message)
+		c.Data(http.StatusInternalServerError, "text/plain", []byte("failed to generate cookie: "+err.Error()))
 		return
 	}
 	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
+
+	if redirect == "" {
+		// TODO: show HTML site with username info and link to logout
+		c.Data(http.StatusOK, "text/plain", []byte("successfully logged in as: "+username))
+		return
+	}
+	c.Redirect(http.StatusTemporaryRedirect, redirect)
 }
 
 func (h *HandlerContext) webHandleLogout(c *gin.Context) {
-	// TODO:
-	//  * if cookie does not exist -> redirect to /login
-	//  * remove user info from cookie, update cookie with c.SetCookie(MaxAge=-1) and redirect to /login or service?
-	c.Status(http.StatusNotImplemented)
+	opts := h.cookies.Options()
+	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
+
 }
 
 func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
