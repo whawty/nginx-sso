@@ -88,8 +88,12 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 	password := c.PostForm("password")
 	redirect := c.PostForm("redirect")
 	if username == "" || password == "" {
-		// TODO: show login template again (with error message)
-		c.Data(http.StatusBadRequest, "text/plain", []byte("Missing at least one of: username, password"))
+		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
+			"title":    "whawty.nginx-sso Login",
+			"uiPrefix": WebUIPathPrefix,
+			"redirect": redirect,
+			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "missing parameter", Message: "username and password are mandatory"},
+		})
 		return
 	}
 

@@ -4,17 +4,37 @@
     <title>{{ title }}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="whawty nginx-sso login">
     <meta name="author" content="Christian Pointner <equinox@spreadspace.org>">
 
-    <link href="{{ uiPrefix }}css/main.css" rel="stylesheet">
+    <link href="{{ uiPrefix }}bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ uiPrefix }}fontawesome/css/fontawesome.min.css" rel="stylesheet">
+    <link href="{{ uiPrefix }}fontawesome/css/solid.min.css" rel="stylesheet">
+    <link href="{{ uiPrefix }}css/login.css" rel="stylesheet">
   </head>
   <body>
-    <h1>{{ title }}</h1>
-    <form action="/login" method="post">
-      <label for=username>Username:</label><input name=username required><p>
-      <label for=password>Password:</label><input type=password name=password required><p>
-      <input type=hidden name=redirect value="{{ redirect | escape }}">
-      <button type=submit>Login</button>
-    </form>
+    <div class="container-fluid">
+      <div id="login-box">
+        <form id="login-form" class="form-auth" role="form" action="/login" method="post">
+          <img class="d-block d-xs-none d-sm-none" src="{{ uiPrefix }}img/logo-small.png" alt="logo" />
+          <div class="loginspacer d-xs-block d-sm-block">&nbsp;</div>
+          <img class="d-none d-xs-block d-sm-block" src="{{ uiPrefix }}img/logo.png" alt="logo" />
+          <h1 class="form-auth-heading">{{ title }}</h1>
+          <input id="login-username" type="text" class="form-control" placeholder="Username" name="username" required autofocus>
+          <input id="login-password" type="password" class="form-control" placeholder="Password" name="password" required>
+          <input type=hidden name=redirect value="{{ redirect | escape }}">
+{% if alert %}
+          <div class="alertbox">
+             <div class="alert alert-{{ alert.Level }} alert-dismissible fade show" role="alert">
+               <strong>{{ alert.Heading }}:</strong> {{ alert.Message }}
+               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+             </div>
+          </div>
+{% endif %}
+          <button id="login-btn" type="submit" class="btn btn-primary btn-lg d-block ms-auto me-auto w-100"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Log In</button>
+        </form>
+      </div>
+    </div>
+    <script src="{{ uiPrefix }}bootstrap/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

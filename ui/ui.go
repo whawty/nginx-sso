@@ -49,3 +49,18 @@ func (fs *filteredFilesystem) Open(name string) (http.File, error) {
 }
 
 var StaticAssets http.FileSystem = &filteredFilesystem{base: Assets}
+
+type AlertLevel string
+
+const (
+	AlertDanger  AlertLevel = "danger"
+	AlertWarning AlertLevel = "warning"
+	AlertSuccess AlertLevel = "warning"
+	AlertInfo    AlertLevel = "info"
+)
+
+type Alert struct {
+	Level   AlertLevel
+	Heading string
+	Message string
+}
