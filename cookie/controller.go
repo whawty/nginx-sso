@@ -62,6 +62,20 @@ type SignerVerifier interface {
 	Verify(payload, signature []byte) error
 }
 
+type Options struct {
+	Name   string
+	MaxAge int
+	Domain string
+	Secure bool
+}
+
+func (opts *Options) fromConfig(conf *Config) {
+	opts.Name = conf.Name
+	opts.MaxAge = int(conf.Expire.Seconds())
+	opts.Domain = conf.Domain
+	opts.Secure = conf.Secure
+}
+
 type Controller struct {
 	conf    *Config
 	keys    []SignerVerifier
@@ -123,7 +137,7 @@ func (c *Controller) initKeys(conf *Config) (err error) {
 	return
 }
 
-func (c *Controller) Mint(p Payload) (name, value string, err error) {
+func (c *Controller) Mint(p Payload) (value string, opts Options, err error) {
 	if c.signer == nil {
 		err = fmt.Errorf("no signing key loaded")
 		return
@@ -135,7 +149,7 @@ func (c *Controller) Mint(p Payload) (name, value string, err error) {
 		return
 	}
 
-	name = c.conf.Name
+	opts.fromConfig(c.conf)
 	value = v.String()
 	return
 }

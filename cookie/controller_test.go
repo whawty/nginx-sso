@@ -144,11 +144,11 @@ func TestMint(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	name, value, err := ctrl.Mint(testPayload)
+	value, opts, err := ctrl.Mint(testPayload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if name != DefaultCookieName {
+	if opts.Name != DefaultCookieName {
 		t.Fatal("Mint() returns wrong cookie name")
 	}
 
@@ -261,7 +261,7 @@ func TestMintThenVerifyMultipleKeys(t *testing.T) {
 	}
 
 	testPayload := Payload{Username: "test-user"}
-	_, value, err := ctrl.Mint(testPayload)
+	value, _, err := ctrl.Mint(testPayload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
