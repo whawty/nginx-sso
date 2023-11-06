@@ -1,25 +1,25 @@
 <!DOCTYPE HTML>
 <html lang="en">
   <head>
-    <title>{{ title }}</title>
+    <title>{{ login.Title }}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="whawty nginx-sso login">
     <meta name="author" content="Christian Pointner <equinox@spreadspace.org>">
 
-    <link href="{{ uiPrefix }}bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="{{ uiPrefix }}fontawesome/css/fontawesome.min.css" rel="stylesheet">
-    <link href="{{ uiPrefix }}fontawesome/css/solid.min.css" rel="stylesheet">
-    <link href="{{ uiPrefix }}css/login.css" rel="stylesheet">
+    <link href="{{ login.UIPath }}bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ login.UIPath }}fontawesome/css/fontawesome.min.css" rel="stylesheet">
+    <link href="{{ login.UIPath }}fontawesome/css/solid.min.css" rel="stylesheet">
+    <link href="{{ login.UIPath }}css/login.css" rel="stylesheet">
   </head>
   <body>
     <div class="container-fluid">
       <div id="login-box">
         <form id="login-form" class="form-auth" role="form" action="/login" method="post">
-          <img class="d-block d-xs-none d-sm-none" src="{{ uiPrefix }}img/logo-small.png" alt="logo" />
+          <img class="d-block d-xs-none d-sm-none" src="{{ login.UIPath }}img/logo-small.png" alt="logo" />
           <div class="loginspacer d-xs-block d-sm-block">&nbsp;</div>
-          <img class="d-none d-xs-block d-sm-block" src="{{ uiPrefix }}img/logo.png" alt="logo" />
-          <h1 class="form-auth-heading">{{ title }}</h1>
+          <img class="d-none d-xs-block d-sm-block" src="{{ login.UIPath }}img/logo.png" alt="logo" />
+          <h1 class="form-auth-heading">{{ login.Title }}</h1>
           <input id="login-username" type="text" class="form-control" placeholder="Username" name="username" required autofocus>
           <input id="login-password" type="password" class="form-control" placeholder="Password" name="password" required>
           <input type=hidden name=redirect value="{{ redirect | escape }}">
@@ -35,6 +35,6 @@
         </form>
       </div>
     </div>
-    <script src="{{ uiPrefix }}bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ login.UIPath }}bootstrap/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

@@ -51,6 +51,7 @@ const (
 )
 
 type HandlerContext struct {
+	conf    *WebConfig
 	cookies *cookie.Controller
 	auth    auth.Backend
 }
@@ -77,8 +78,7 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 	if c.Request.Method == http.MethodGet {
 		redirect, _ := c.GetQuery("redir")
 		c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
-			"title":    "whawty.nginx-sso Login",
-			"uiPrefix": WebUIPathPrefix,
+			"login":    h.conf.Login,
 			"redirect": redirect,
 		})
 		return
@@ -89,8 +89,7 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 	redirect := c.PostForm("redirect")
 	if username == "" || password == "" {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
-			"title":    "whawty.nginx-sso Login",
-			"uiPrefix": WebUIPathPrefix,
+			"login":    h.conf.Login,
 			"redirect": redirect,
 			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "missing parameter", Message: "username and password are mandatory"},
 		})
@@ -99,15 +98,21 @@ func (h *HandlerContext) webHandleLogin(c *gin.Context) {
 
 	err := h.auth.Authenticate(username, password)
 	if err != nil {
-		// TODO: show login template again (with error message)
-		c.Data(http.StatusBadRequest, "text/plain", []byte("login failed: "+err.Error()))
+		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
+			"login":    h.conf.Login,
+			"redirect": redirect,
+			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "login failed", Message: err.Error()},
+		})
 		return
 	}
 
 	value, opts, err := h.cookies.Mint(cookie.Payload{Username: "foo"})
 	if err != nil {
-		// TODO: show login template again (with error message)
-		c.Data(http.StatusInternalServerError, "text/plain", []byte("failed to generate cookie: "+err.Error()))
+		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
+			"login":    h.conf.Login,
+			"redirect": redirect,
+			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "failed to generate cookie", Message: err.Error()},
+		})
 		return
 	}
 	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
@@ -127,19 +132,36 @@ func (h *HandlerContext) webHandleLogout(c *gin.Context) {
 }
 
 func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
+	if config.Login.Title == "" {
+		config.Login.Title = "whawty.nginx-sso Login"
+	}
+	if config.Login.UIPath == "" {
+		config.Login.UIPath = WebUIPathPrefix
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.HandleMethodNotAllowed = true
+
+	var htmlTmplLoader pongo2.TemplateLoader
+	if config.Login.TemplatesPath != "" {
+		htmlTmplLoader, err = pongo2.NewLocalFileSystemLoader(config.Login.TemplatesPath)
+		if err != nil {
+			return
+		}
+	} else {
+		htmlTmplLoader = pongo2.MustNewHttpFileSystemLoader(ui.Assets, "")
+	}
 	r.HTMLRender = pongo2gin.New(pongo2gin.RenderOptions{
-		TemplateSet: pongo2.NewSet("html", pongo2.MustNewHttpFileSystemLoader(ui.Assets, "")),
+		TemplateSet: pongo2.NewSet("html", htmlTmplLoader),
 		ContentType: "text/html; charset=utf-8"})
 
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, WebLoginPath) })
 	r.StaticFS(WebUIPathPrefix, ui.StaticAssets)
 
-	h := &HandlerContext{cookies: cookies, auth: auth}
+	h := &HandlerContext{conf: config, cookies: cookies, auth: auth}
 	r.GET(WebAuthPath, h.webHandleAuth)
 	r.GET(WebLoginPath, h.webHandleLogin)
 	r.POST(WebLoginPath, h.webHandleLogin)

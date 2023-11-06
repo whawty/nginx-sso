@@ -40,8 +40,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type LoginConfig struct {
+	TemplatesPath string `yaml:"templates"`
+	UIPath        string `yaml:"ui-path"`
+	Title         string `yaml:"title"`
+}
+
 type WebConfig struct {
-	TLS *tlsconfig.TLSConfig `yaml:"tls"`
+	TLS   *tlsconfig.TLSConfig `yaml:"tls"`
+	Login LoginConfig          `yaml:"login"`
 }
 
 type Config struct {
