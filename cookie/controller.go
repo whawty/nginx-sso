@@ -38,7 +38,8 @@ import (
 )
 
 const (
-	DefaultExpire = 24 * time.Hour
+	DefaultCookieName = "whawty-nginx-sso"
+	DefaultExpire     = 24 * time.Hour
 )
 
 type SignerVerifierConfig struct {
@@ -78,7 +79,7 @@ func NewController(conf *Config, infoLog, dbgLog *log.Logger) (*Controller, erro
 	}
 
 	if conf.Name == "" {
-		conf.Name = "whawty-nginx-sso"
+		conf.Name = DefaultCookieName
 	}
 	if conf.Expire <= 0 {
 		conf.Expire = DefaultExpire

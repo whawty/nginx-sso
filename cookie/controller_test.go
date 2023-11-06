@@ -31,7 +31,9 @@
 package cookie
 
 import (
+	"crypto/ed25519"
 	"testing"
+	"time"
 )
 
 func TestNewController(t *testing.T) {
@@ -119,4 +121,177 @@ func TestMultipleKeys(t *testing.T) {
 	}
 }
 
-// TODO: add test functions for Mint() and Verify()
+func TestMint(t *testing.T) {
+	conf := &Config{}
+	conf.Keys = []SignerVerifierConfig{
+		SignerVerifierConfig{Name: "verify-only", Ed25519: &Ed25519Config{PubKey: &testPubKeyEd25519Pem}},
+	}
+	ctrl, err := NewController(conf, nil, nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	testPayload := Payload{Username: "test-user"}
+	_, _, err = ctrl.Mint(testPayload)
+	if err == nil {
+		t.Fatal("calling Mint() on verify-only controller must return an error")
+	}
+
+	conf.Keys = []SignerVerifierConfig{
+		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
+	}
+	ctrl, err = NewController(conf, nil, nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	name, value, err := ctrl.Mint(testPayload)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if name != DefaultCookieName {
+		t.Fatal("Mint() returns wrong cookie name")
+	}
+
+	var v Value
+	err = v.FromString(value)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(v.payload) == 0 || len(v.signature) == 0 {
+		t.Fatal("Mint() returned invalid value")
+	}
+	err = ctrl.signer.Verify(v.payload, v.signature)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	var p Payload
+	err = p.Decode(v.payload)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if p.Username != testPayload.Username {
+		t.Fatalf("the username is wrong, expected: %s, got %s", testPayload.Username, p.Username)
+	}
+	expire := time.Unix(p.Expires, 0).Sub(time.Now())
+	expiresDiff := DefaultExpire - expire
+	if expiresDiff < 0 || expiresDiff > 5*time.Second {
+		t.Fatalf("expires: expected %v, got %v (diff: %v)", DefaultExpire, expire, expiresDiff)
+	}
+}
+
+func TestVerify(t *testing.T) {
+	conf := &Config{}
+	conf.Keys = []SignerVerifierConfig{
+		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
+	}
+	ctrl, err := NewController(conf, nil, nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	_, err = ctrl.Verify("")
+	if err == nil {
+		t.Fatal("verifing invalid cookie value should fail")
+	}
+
+	testPayload := Payload{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
+	testValue := &Value{payload: testPayload.Encode()}
+
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	testSigner := &Ed25519SignerVerifier{context: DefaultCookieName + "_sign-and-verify", priv: priv, pub: pub}
+	testValue.signature, err = testSigner.Sign(testValue.payload)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	_, err = ctrl.Verify(testValue.String())
+	if err == nil {
+		t.Fatal("signature signed by unknown signer should not verify")
+	}
+
+	testValue.payload = []byte("this-is-not-a-valid-payload")
+	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	_, err = ctrl.Verify(testValue.String())
+	if err == nil {
+		t.Fatal("extracting an ivalid payload should fail")
+	}
+
+	testValue.payload = (&Payload{Username: "test-user", Expires: time.Now().Unix()}).Encode()
+	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	_, err = ctrl.Verify(testValue.String())
+	if err == nil {
+		t.Fatal("expired cookie should not successfully verify")
+	}
+
+	testValue.payload = testPayload.Encode()
+	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	p, err := ctrl.Verify(testValue.String())
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if p.Username != testPayload.Username {
+		t.Fatalf("the username is wrong, expected: %s, got %s", testPayload.Username, p.Username)
+	}
+}
+
+func TestMintThenVerifyMultipleKeys(t *testing.T) {
+	conf := &Config{}
+	conf.Name = "some-prefix"
+	conf.Expire = time.Hour
+	conf.Keys = []SignerVerifierConfig{
+		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
+	}
+	ctrl, err := NewController(conf, nil, nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	testPayload := Payload{Username: "test-user"}
+	_, value, err := ctrl.Mint(testPayload)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	_, err = ctrl.Verify(value)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	testSignerName := "secondary"
+	testSigner := &Ed25519SignerVerifier{context: conf.Name + "_" + testSignerName, priv: priv, pub: pub}
+
+	testPayload.Expires = time.Now().Add(time.Hour).Unix()
+	testValue := &Value{payload: testPayload.Encode()}
+	testValue.signature, err = testSigner.Sign(testValue.payload)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	_, err = ctrl.Verify(testValue.String())
+	if err == nil {
+		t.Fatal("signature signed by unknown signer should not verify")
+	}
+
+	ctrl.keys = append(ctrl.keys, testSigner)
+	_, err = ctrl.Verify(testValue.String())
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+}
