@@ -33,6 +33,7 @@ package cookie
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
 )
 
@@ -93,6 +94,14 @@ MC4CAQAwBQYDK2VwBCIEIG2TybpzwnGPXRU7ekqjCSR3OfIHfv2l4SSvzY0Zw01M
 		0x77, 0x39, 0xf2, 0x7, 0x7e, 0xfd, 0xa5, 0xe1, 0x24, 0xaf, 0xcd, 0x8d, 0x19, 0xc3, 0x4d, 0x4c,
 		0x4a, 0x4f, 0x85, 0xfc, 0x6, 0x1b, 0x42, 0x91, 0x9f, 0x50, 0x34, 0xe2, 0x11, 0xc2, 0x3, 0x44,
 		0xe3, 0x79, 0xf, 0xb0, 0x49, 0x73, 0x8, 0x23, 0x7d, 0x2e, 0xb4, 0x7d, 0x28, 0xb0, 0xd2, 0xb3}
+
+	testContext               = "foo"
+	testMessage               = []byte("hello, world")
+	testSignatureEd25519Bytes = []byte{
+		0xfe, 0xb8, 0xb0, 0xe7, 0xbe, 0x9c, 0x93, 0xef, 0xbe, 0xa7, 0xe3, 0x43, 0xe0, 0x89, 0x85, 0x3b,
+		0x94, 0xd6, 0x2a, 0x97, 0xf8, 0x72, 0xdf, 0xc0, 0x2c, 0x7, 0x43, 0xfb, 0xf6, 0x6b, 0xa9, 0x7b,
+		0x91, 0xd0, 0x7a, 0x5c, 0xd, 0x4b, 0xe1, 0x9c, 0x64, 0x22, 0x4d, 0x1, 0xa0, 0x95, 0x85, 0x4e,
+		0x35, 0xbe, 0x44, 0xd4, 0xe7, 0xbf, 0xf2, 0xb0, 0xcc, 0x81, 0x54, 0x6b, 0x72, 0x20, 0x43, 0x1}
 )
 
 func TestLoadEd25519PublicKey(t *testing.T) {
@@ -176,7 +185,7 @@ func TestLoadEd25519KeysFile(t *testing.T) {
 
 func TestNewEd25519SignerVerifier(t *testing.T) {
 	conf := &Ed25519Config{}
-	_, err := NewEd25519SignerVerifier("foo", conf)
+	_, err := NewEd25519SignerVerifier(testContext, conf)
 	if err == nil {
 		t.Fatal("initializing Ed25519 Signer/Verifier from empty config should fail")
 	}
@@ -185,7 +194,7 @@ func TestNewEd25519SignerVerifier(t *testing.T) {
 
 	conf.PrivKey = &testPrivKeyEd25519Pem
 	conf.PrivKeyFile = &keyFilePath
-	_, err = NewEd25519SignerVerifier("foo", conf)
+	_, err = NewEd25519SignerVerifier(testContext, conf)
 	if err == nil {
 		t.Fatal("initializing Ed25519 Signer/Verifier with both priv-key and priv-key-file should fail")
 	}
@@ -195,34 +204,132 @@ func TestNewEd25519SignerVerifier(t *testing.T) {
 	conf.PubKey = &testPubKeyEd25519Pem
 	conf.PubKeyFile = &keyFilePath
 
-	_, err = NewEd25519SignerVerifier("foo", conf)
+	_, err = NewEd25519SignerVerifier(testContext, conf)
 	if err == nil {
 		t.Fatal("initializing Ed25519 Signer/Verifier with both pub-key and pub-key-file should fail")
+	}
+
+	conf.PrivKey = nil
+	conf.PrivKeyFile = nil
+	conf.PubKey = &testPubKeyEd25519Pem
+	conf.PubKeyFile = nil
+	_, err = NewEd25519SignerVerifier("", conf)
+	if err == nil {
+		t.Fatal("initializing Ed25519 Signer/Verifier with empty context should fail")
 	}
 }
 
 func TestEd25519CanSign(t *testing.T) {
 	conf := &Ed25519Config{}
 	conf.PubKey = &testPubKeyEd25519Pem
-	s, err := NewEd25519SignerVerifier("foo", conf)
+	s, err := NewEd25519SignerVerifier(testContext, conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	if s.CanSign() {
 		t.Fatal("initializing Ed25519 Signer/Verifier with Public-Key should not allow signing")
-
 	}
 
 	conf.PubKey = nil
 	conf.PrivKey = &testPrivKeyEd25519Pem
-	s, err = NewEd25519SignerVerifier("foo", conf)
+	s, err = NewEd25519SignerVerifier(testContext, conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	if !s.CanSign() {
 		t.Fatal("initializing Ed25519 Signer/Verifier with Private-Key should allow signing")
-
 	}
 }
 
-// TODO: add Tests for Sign() and Verify()
+func TestEd25519Sign(t *testing.T) {
+	conf := &Ed25519Config{}
+	conf.PubKey = &testPubKeyEd25519Pem
+	s, err := NewEd25519SignerVerifier(testContext, conf)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	_, err = s.Sign(testMessage)
+	if err == nil {
+		t.Fatal("trying to sign using an Ed25519 Signer/Verifier with Public-Key should return an error")
+	}
+
+	conf.PubKey = nil
+	conf.PrivKey = &testPrivKeyEd25519Pem
+	s, err = NewEd25519SignerVerifier(testContext, conf)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	sig, err := s.Sign(testMessage)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	if bytes.Compare(sig, testSignatureEd25519Bytes) != 0 {
+		t.Fatalf("signing test message failed: expected signature '%#v', got '%#v'", testSignatureEd25519Bytes, sig)
+	}
+}
+
+func TestEd25519Verify(t *testing.T) {
+	conf := &Ed25519Config{}
+	conf.PubKey = &testPubKeyEd25519Pem
+	s, err := NewEd25519SignerVerifier(testContext, conf)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	err = s.Verify([]byte("some other message"), testSignatureEd25519Bytes)
+	if err == nil {
+		t.Fatal("verifing the wrong message must fail")
+	}
+	err = s.Verify(testMessage, []byte("this is not a signature"))
+	if err == nil {
+		t.Fatal("verifing the wrong signature must fail")
+	}
+	err = s.Verify(testMessage, testSignatureEd25519Bytes)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	conf.PubKey = nil
+	conf.PrivKey = &testPrivKeyEd25519Pem
+	s, err = NewEd25519SignerVerifier(testContext, conf)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	err = s.Verify([]byte("some other message"), testSignatureEd25519Bytes)
+	if err == nil {
+		t.Fatal("verifing the wrong message must fail")
+	}
+	err = s.Verify(testMessage, []byte("this is not a signature"))
+	if err == nil {
+		t.Fatal("verifing the wrong signature must fail")
+	}
+	err = s.Verify(testMessage, testSignatureEd25519Bytes)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+}
+
+func TestEd25519SignThenVerify(t *testing.T) {
+	message := make([]byte, 42)
+	_, err := rand.Reader.Read(message)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	signer := &Ed25519SignerVerifier{context: testContext, priv: priv, pub: pub}
+	verifier := &Ed25519SignerVerifier{context: testContext, priv: priv, pub: pub}
+
+	sig, err := signer.Sign(message)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	err = verifier.Verify(message, sig)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+}

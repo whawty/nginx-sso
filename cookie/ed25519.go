@@ -125,6 +125,9 @@ func loadEd25519Keys(conf *Ed25519Config) (ed25519.PrivateKey, ed25519.PublicKey
 }
 
 func NewEd25519SignerVerifier(context string, conf *Ed25519Config) (*Ed25519SignerVerifier, error) {
+	if context == "" {
+		return nil, fmt.Errorf("context must not be empty")
+	}
 	if conf.PrivKey != nil && conf.PrivKeyFile != nil {
 		return nil, fmt.Errorf("'private-key' and 'public-key-file' are mutually exclusive")
 	}
