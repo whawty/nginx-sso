@@ -31,8 +31,13 @@
 package auth
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io"
 	"log"
+	"net/url"
+	"os"
 	"strings"
 
 	"github.com/go-ldap/ldap/v3"
@@ -40,17 +45,22 @@ import (
 
 type LDAPConfig struct {
 	Servers           []string `yaml:"servers"`
-	RootDN            string   `yaml:"root_dn"`
-	ManagerDN         string   `yaml:"manager_dn"`
-	ManagerPassword   string   `yaml:"manager_password"`
-	UserSearchBase    string   `yaml:"user_search_base"`
-	UserSearchFilter  string   `yaml:"user_search_filter"`
-	UsernameAttribute string   `yaml:"username_attribute"`
-	// TODO: TLS
+	RootDN            string   `yaml:"root-dn"`
+	ManagerDN         string   `yaml:"manager-dn"`
+	ManagerPassword   string   `yaml:"manager-password"`
+	UserSearchBase    string   `yaml:"user-search-base"`
+	UserSearchFilter  string   `yaml:"user-search-filter"`
+	UsernameAttribute string   `yaml:"username-attribute"`
+	TLS               *struct {
+		StartTLS           bool     `yaml:"start-tls"`
+		InsecureSkipVerify bool     `yaml:"insecure-skip-verify"`
+		CACertificates     []string `yaml:"ca-certificates"`
+	} `yaml:"tls"`
 }
 
 type LDAPBackend struct {
 	conf    *LDAPConfig
+	tlsConf *tls.Config
 	infoLog *log.Logger
 	dbgLog  *log.Logger
 }
@@ -70,22 +80,78 @@ func NewLDAPBackend(conf *LDAPConfig, infoLog, dbgLog *log.Logger) (Backend, err
 	}
 
 	b := &LDAPBackend{conf: conf, infoLog: infoLog, dbgLog: dbgLog}
-	infoLog.Printf("ldap: successfully intialized")
+	if conf.TLS != nil {
+		if err := b.initTLSConfig(); err != nil {
+			return nil, err
+		}
+	}
+	infoLog.Printf("ldap: successfully initialized")
 	return b, nil
 }
 
+func loadFile(filename string) ([]byte, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return io.ReadAll(f)
+}
+
+func serverNameFromUrl(server string) (string, error) {
+	u, err := url.Parse(server)
+	if err != nil {
+		return "", fmt.Errorf("server url '%s' is invalid", server)
+	}
+	return u.Hostname(), nil
+}
+
+func (w *LDAPBackend) initTLSConfig() error {
+	w.tlsConf = &tls.Config{}
+	w.tlsConf.InsecureSkipVerify = w.conf.TLS.InsecureSkipVerify
+	w.tlsConf.RootCAs = x509.NewCertPool()
+	for _, cert := range w.conf.TLS.CACertificates {
+		pemData, err := loadFile(cert)
+		if err != nil {
+			return fmt.Errorf("ldap: loading ca-certificates failed: %v", err)
+		}
+
+		ok := w.tlsConf.RootCAs.AppendCertsFromPEM(pemData)
+		if !ok {
+			return fmt.Errorf("ldap: no certificates found in file '%s'", cert)
+		}
+	}
+	return nil
+}
+
 func (w *LDAPBackend) authenticate(server, username, password string) (bool, error) {
-	// TODO: add ldap.DialWithTLSConfig(..)
-	l, err := ldap.DialURL(server)
+	opts := []ldap.DialOpt{}
+	srvTLSConf := &tls.Config{}
+
+	if w.conf.TLS != nil {
+		sn, err := serverNameFromUrl(server)
+		if err != nil {
+			return true, err
+		}
+		srvTLSConf = w.tlsConf.Clone()
+		srvTLSConf.ServerName = sn
+		if w.conf.TLS.StartTLS == false {
+			opts = append(opts, ldap.DialWithTLSConfig(srvTLSConf))
+		}
+	}
+
+	l, err := ldap.DialURL(server, opts...)
 	if err != nil {
 		return true, err
 	}
 	defer l.Close()
 
-	// TODO: do this if configured
-	// if err = l.StartTLS(&tls.Config{InsecureSkipVerify: true}); err != nil {
-	// 	return true, err
-	// }
+	if srvTLSConf != nil && w.conf.TLS.StartTLS {
+		if err = l.StartTLS(srvTLSConf); err != nil {
+			return true, err
+		}
+	}
 
 	if err = l.Bind(w.conf.ManagerDN, w.conf.ManagerPassword); err != nil {
 		return true, err
