@@ -32,36 +32,40 @@ package auth
 
 import (
 	"fmt"
-	"io"
 	"log"
+
+	"github.com/tg123/go-htpasswd"
 )
 
-type Config struct {
-	LDAP   *LDAPConfig       `yaml:"ldap"`
-	Static *StaticConfig     `yaml:"static"`
-	Whawty *WhawtyAuthConfig `yaml:"whawty"`
+type StaticConfig struct {
+	HTPasswd string `yaml:"htpasswd"`
 }
 
-type Backend interface {
-	Authenticate(username, password string) error
+type StaticBackend struct {
+	htpasswd *htpasswd.File
+	infoLog  *log.Logger
+	dbgLog   *log.Logger
 }
 
-func NewBackend(conf *Config, infoLog, dbgLog *log.Logger) (Backend, error) {
-	if infoLog == nil {
-		infoLog = log.New(io.Discard, "", 0)
-	}
-	if dbgLog == nil {
-		dbgLog = log.New(io.Discard, "", 0)
+func NewStaticBackend(conf *StaticConfig, infoLog, dbgLog *log.Logger) (Backend, error) {
+	file, err := htpasswd.New(conf.HTPasswd, htpasswd.DefaultSystems, func(err error) {
+		dbgLog.Printf("static: found invalid line: %v", err)
+	})
+	if err != nil {
+		infoLog.Printf("static: failed to initialize database: %v", err)
+		return nil, err
 	}
 
-	if conf.LDAP != nil {
-		return NewLDAPBackend(conf.LDAP, infoLog, dbgLog)
+	b := &StaticBackend{htpasswd: file, infoLog: infoLog, dbgLog: dbgLog}
+	infoLog.Printf("static: successfully initilized database: %s", conf.HTPasswd)
+	return b, nil
+}
+
+func (w *StaticBackend) Authenticate(username, password string) error {
+	// TODO: call w.htpasswd.Reload() ??
+	ok := w.htpasswd.Match(username, password)
+	if !ok {
+		return fmt.Errorf("invalid username or password")
 	}
-	if conf.Static != nil {
-		return NewStaticBackend(conf.Static, infoLog, dbgLog)
-	}
-	if conf.Whawty != nil {
-		return NewWhawtyAuthBackend(conf.Whawty, infoLog, dbgLog)
-	}
-	return nil, fmt.Errorf("no valid authentication backend found in configuration")
+	return nil
 }

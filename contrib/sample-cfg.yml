@@ -28,8 +28,10 @@ cookie:
   #     public-key-file: ./contrib/bar_ed25519_pub.pem
 
 auth:
-  whawty:
-    store: contrib/whawty-auth-store.yml
+  static:
+    htpasswd: contrib/htpasswd
+  # whawty:
+  #   store: contrib/whawty-auth-store.yml
   # ldap:
   #   servers:
   #   - ldaps://ldap1.example.com
