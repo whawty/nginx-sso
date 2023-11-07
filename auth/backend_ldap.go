@@ -60,7 +60,7 @@ func NewLDAPBackend(conf *LDAPConfig, infoLog, dbgLog *log.Logger) (Backend, err
 		conf.UserSearchBase = conf.RootDN
 	}
 	if conf.UserSearchFilter == "" {
-		conf.UserSearchFilter = "(&(inetOrgPerson)(uid={0}))"
+		conf.UserSearchFilter = "(&(objectClass=inetOrgPerson)(uid={0}))"
 	}
 	if conf.UsernameAttribute == "" {
 		conf.UsernameAttribute = "uid"
