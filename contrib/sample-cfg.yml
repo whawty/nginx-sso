@@ -31,7 +31,9 @@ auth:
   whawty:
     store: contrib/whawty-auth-store.yml
   # ldap:
-  #   server: ldaps://ldap.example.com
+  #   servers:
+  #   - ldaps://ldap1.example.com
+  #   - ldaps://ldap2.example.com
   #   root_dn: "dc=example,dc=com"
   #   manager_dn: "dn=manager,dc=example,dc=com"
   #   manager_password: "secret"
