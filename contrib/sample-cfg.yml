@@ -32,6 +32,7 @@ auth:
     htpasswd: contrib/htpasswd
   # whawty:
   #   store: contrib/whawty-auth-store.yml
+  #   remote-upgrade-url: http://127.0.0.1:2345/api/update
   # ldap:
   #   servers:
   #   - ldaps://ldap1.example.com
