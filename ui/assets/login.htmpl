@@ -26,7 +26,7 @@
 {% if alert %}
           <div class="alertbox">
              <div class="alert alert-{{ alert.Level }} alert-dismissible fade show" role="alert">
-               <strong>{{ alert.Heading }}:</strong> {{ alert.Message }}
+               <strong>{{ alert.Heading | escape }}:</strong> {{ alert.Message | escape }}
                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
              </div>
           </div>

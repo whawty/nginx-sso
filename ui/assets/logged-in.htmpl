@@ -20,7 +20,7 @@
         <div class="row">
           <div class="col-md-4"></div>
             <div class="col-md-4">
-              <h1>User: <strong class="username">{{ username }}</strong></h1>
+              <h1>User: <strong class="username">{{ username | escape }}</strong></h1>
             </div>
             <div class="col-md-4"></div>
           </div>
