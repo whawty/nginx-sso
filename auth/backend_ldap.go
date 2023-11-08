@@ -44,14 +44,14 @@ import (
 )
 
 type LDAPConfig struct {
-	Servers           []string `yaml:"servers"`
-	RootDN            string   `yaml:"root-dn"`
-	ManagerDN         string   `yaml:"manager-dn"`
-	ManagerPassword   string   `yaml:"manager-password"`
-	UserSearchBase    string   `yaml:"user-search-base"`
-	UserSearchFilter  string   `yaml:"user-search-filter"`
-	UsernameAttribute string   `yaml:"username-attribute"`
-	TLS               *struct {
+	Servers          []string `yaml:"servers"`
+	RootDN           string   `yaml:"root-dn"`
+	ManagerDN        string   `yaml:"manager-dn"`
+	ManagerPassword  string   `yaml:"manager-password"`
+	UserSearchBase   string   `yaml:"user-search-base"`
+	UserSearchFilter string   `yaml:"user-search-filter"`
+	UserDNTemplate   string   `yaml:"user-dn-template"`
+	TLS              *struct {
 		StartTLS           bool     `yaml:"start-tls"`
 		InsecureSkipVerify bool     `yaml:"insecure-skip-verify"`
 		CACertificates     []string `yaml:"ca-certificates"`
@@ -71,9 +71,6 @@ func NewLDAPBackend(conf *LDAPConfig, infoLog, dbgLog *log.Logger) (Backend, err
 	}
 	if conf.UserSearchFilter == "" {
 		conf.UserSearchFilter = "(&(objectClass=inetOrgPerson)(uid={0}))"
-	}
-	if conf.UsernameAttribute == "" {
-		conf.UsernameAttribute = "uid"
 	}
 	if len(conf.Servers) == 0 {
 		return nil, fmt.Errorf("ldap: at least server must be configured")
@@ -125,6 +122,33 @@ func (w *LDAPBackend) initTLSConfig() error {
 	return nil
 }
 
+func (w *LDAPBackend) getUserDN(l *ldap.Conn, username string) (string, bool, error) {
+	if w.conf.UserDNTemplate != "" {
+		userdn := strings.NewReplacer("{0}", ldap.EscapeDN(username)).Replace(w.conf.UserDNTemplate)
+		return userdn, false, nil
+	}
+
+	if w.conf.ManagerDN != "" && w.conf.ManagerPassword != "" {
+		if err := l.Bind(w.conf.ManagerDN, w.conf.ManagerPassword); err != nil {
+			return "", true, err
+		}
+	}
+
+	f := strings.NewReplacer("{0}", ldap.EscapeFilter(username)).Replace(w.conf.UserSearchFilter)
+	searchRequest := ldap.NewSearchRequest(w.conf.UserSearchBase, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false, f, []string{"dn"}, nil)
+	sr, err := l.Search(searchRequest)
+	if err != nil {
+		return "", true, err
+	}
+	if len(sr.Entries) == 0 {
+		return "", false, fmt.Errorf("user not found")
+	}
+	if len(sr.Entries) > 1 {
+		return "", false, fmt.Errorf("user search filter returned multiple results")
+	}
+	return sr.Entries[0].DN, false, nil
+}
+
 func (w *LDAPBackend) authenticate(server, username, password string) (bool, error) {
 	opts := []ldap.DialOpt{}
 	srvTLSConf := &tls.Config{}
@@ -153,25 +177,11 @@ func (w *LDAPBackend) authenticate(server, username, password string) (bool, err
 		}
 	}
 
-	if err = l.Bind(w.conf.ManagerDN, w.conf.ManagerPassword); err != nil {
-		return true, err
-	}
-
-	f := strings.NewReplacer("{0}", ldap.EscapeFilter(username)).Replace(w.conf.UserSearchFilter)
-	a := []string{w.conf.UsernameAttribute}
-	searchRequest := ldap.NewSearchRequest(w.conf.UserSearchBase, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false, f, a, nil)
-	sr, err := l.Search(searchRequest)
+	userdn, retry, err := w.getUserDN(l, username)
 	if err != nil {
-		return true, err
+		return retry, err
 	}
-	if len(sr.Entries) == 0 {
-		return false, fmt.Errorf("user not found")
-	}
-	if len(sr.Entries) > 1 {
-		return false, fmt.Errorf("user search filter returned multiple results")
-	}
-
-	if err = l.Bind(sr.Entries[0].DN, password); err != nil {
+	if err = l.Bind(userdn, password); err != nil {
 		return false, err
 	}
 	return false, nil

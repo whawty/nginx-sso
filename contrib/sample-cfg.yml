@@ -36,17 +36,19 @@ auth:
   #   servers:
   #   - ldaps://ldap1.example.com
   #   - ldaps://ldap2.example.com
-  #   root-dn: "dc=example,dc=com"
-  #   manager-dn: "cn=manager,dc=example,dc=com"
-  #   manager-password: "secret"
-  #   user-search-base: "ou=People,dc=example,dc=com"
-  #   user-search-filter: "(&(objectClass=inetOrgPerson)(uid={0}))"
-  #   username-attribute: "uid"
   #   tls:
   #     start-tls: false
   #     insecure-skip-verify: true
   #     ca-certificates:
   #     - root-ca.pem
+  #### directly bind to this DN, {0} will be replaced by the username, leave empty to search the users DN using the parameters below
+  #   user-dn-template: "uid={0},ou=People,dc=helsinki,dc=at"
+  #### bind to this credentials when searching for the user DN, leave empty for anonymous bind
+  #   manager-dn: "cn=manager,dc=example,dc=com"
+  #   manager-password: "secret"
+  #### this filter and base will be used when searching for the user DN, {0} will be replaced by the username
+  #   user-search-base: "ou=People,dc=example,dc=com"
+  #   user-search-filter: "(&(objectClass=inetOrgPerson)(uid={0}))"
 
 web:
   login:
