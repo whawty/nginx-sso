@@ -54,7 +54,8 @@ type LDAPConfig struct {
 	TLS              *struct {
 		StartTLS           bool     `yaml:"start-tls"`
 		InsecureSkipVerify bool     `yaml:"insecure-skip-verify"`
-		CACertificates     []string `yaml:"ca-certificates"`
+		CACertificates     string   `yaml:"ca-certificates"`
+		CACertificateFiles []string `yaml:"ca-certificate-files"`
 	} `yaml:"tls"`
 }
 
@@ -108,7 +109,12 @@ func (w *LDAPBackend) initTLSConfig() error {
 	w.tlsConf = &tls.Config{}
 	w.tlsConf.InsecureSkipVerify = w.conf.TLS.InsecureSkipVerify
 	w.tlsConf.RootCAs = x509.NewCertPool()
-	for _, cert := range w.conf.TLS.CACertificates {
+	if w.conf.TLS.CACertificates != "" {
+		if ok := w.tlsConf.RootCAs.AppendCertsFromPEM([]byte(w.conf.TLS.CACertificates)); !ok {
+			return fmt.Errorf("ldap: no certificates found in ca-certificates content")
+		}
+	}
+	for _, cert := range w.conf.TLS.CACertificateFiles {
 		pemData, err := loadFile(cert)
 		if err != nil {
 			return fmt.Errorf("ldap: loading ca-certificates failed: %v", err)

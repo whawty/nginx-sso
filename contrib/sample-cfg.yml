@@ -40,10 +40,17 @@ auth:
   #   tls:
   #     start-tls: false
   #     insecure-skip-verify: true
-  #     ca-certificates:
+  #     ca-certificates: |
+  #       -----BEGIN CERTIFICATE-----
+  #       ...
+  #       -----END CERTIFICATE-----
+  #       -----BEGIN CERTIFICATE-----
+  #       ...
+  #       -----END CERTIFICATE-----
+  #     ca-certificate-files:
   #     - root-ca.pem
   #### directly bind to this DN, {0} will be replaced by the username, leave empty to search the users DN using the parameters below
-  #   user-dn-template: "uid={0},ou=People,dc=helsinki,dc=at"
+  #   user-dn-template: "uid={0},ou=People,dc=example,dc=com"
   #### bind to this credentials when searching for the user DN, leave empty for anonymous bind
   #   manager-dn: "cn=manager,dc=example,dc=com"
   #   manager-password: "secret"
