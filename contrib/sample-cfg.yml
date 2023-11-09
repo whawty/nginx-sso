@@ -33,6 +33,17 @@ auth:
   # whawty:
   #   store: contrib/whawty-auth-store.yml
   #   remote-upgrade-url: http://127.0.0.1:2345/api/update
+  #   remote-upgrade-tls:
+  #     insecure-skip-verify: true
+  #     ca-certificates: |
+  #       -----BEGIN CERTIFICATE-----
+  #       ...
+  #       -----END CERTIFICATE-----
+  #       -----BEGIN CERTIFICATE-----
+  #       ...
+  #       -----END CERTIFICATE-----
+  #     ca-certificate-files:
+  #     - root-ca.pem
   # ldap:
   #   servers:
   #   - ldaps://ldap1.example.com
