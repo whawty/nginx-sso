@@ -61,9 +61,9 @@ func NewStaticBackend(conf *StaticConfig, infoLog, dbgLog *log.Logger) (Backend,
 	return b, nil
 }
 
-func (w *StaticBackend) Authenticate(username, password string) error {
-	// TODO: call w.htpasswd.Reload() ??
-	ok := w.htpasswd.Match(username, password)
+func (b *StaticBackend) Authenticate(username, password string) error {
+	// TODO: call b.htpasswd.Reload() ??
+	ok := b.htpasswd.Match(username, password)
 	if !ok {
 		return fmt.Errorf("invalid username or password")
 	}

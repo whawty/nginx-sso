@@ -72,7 +72,7 @@ func NewLDAPBackend(conf *LDAPConfig, infoLog, dbgLog *log.Logger) (Backend, err
 	if conf.TLS != nil {
 		var err error
 		if b.tlsConf, err = conf.TLS.ToGoTLSConfig(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ldap: %v", err)
 		}
 	}
 	infoLog.Printf("ldap: successfully initialized")

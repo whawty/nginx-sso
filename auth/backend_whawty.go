@@ -122,29 +122,29 @@ func remoteHTTPUpgrader(upgradeChan <-chan whawtyUpgradeRequest, remote string, 
 	}
 }
 
-func (w *WhawtyAuthBackend) runRemoteUpgrader(remote string) error {
+func (b *WhawtyAuthBackend) runRemoteUpgrader(remote string) error {
 	r, err := url.Parse(remote)
 	if err != nil {
 		return err
 	}
 	switch r.Scheme {
 	case "http":
-		w.infoLog.Printf("whaty: using insecure url for remote upgrades: %s", remote)
+		b.infoLog.Printf("whaty: using insecure url for remote upgrades: %s", remote)
 		fallthrough
 	case "https":
-		w.upgradeChan = make(chan whawtyUpgradeRequest, 10)
-		go remoteHTTPUpgrader(w.upgradeChan, remote, w.infoLog, w.dbgLog)
+		b.upgradeChan = make(chan whawtyUpgradeRequest, 10)
+		go remoteHTTPUpgrader(b.upgradeChan, remote, b.infoLog, b.dbgLog)
 	default:
 		return fmt.Errorf("whawty-auth: invalid upgrade url: %s", remote)
 	}
 	return nil
 }
 
-func (w *WhawtyAuthBackend) Authenticate(username, password string) error {
-	ok, _, upgradeable, _, err := w.store.Authenticate(username, password)
-	if ok && upgradeable && w.upgradeChan != nil {
+func (b *WhawtyAuthBackend) Authenticate(username, password string) error {
+	ok, _, upgradeable, _, err := b.store.Authenticate(username, password)
+	if ok && upgradeable && b.upgradeChan != nil {
 		select {
-		case w.upgradeChan <- whawtyUpgradeRequest{Username: username, OldPassword: password}:
+		case b.upgradeChan <- whawtyUpgradeRequest{Username: username, OldPassword: password}:
 		default: // remote upgrades are opportunistic
 		}
 	}

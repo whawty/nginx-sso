@@ -72,18 +72,18 @@ func (t TLSClientConfig) ToGoTLSConfig() (*tls.Config, error) {
 	cfg.RootCAs = x509.NewCertPool()
 	if t.CACertificates != "" {
 		if ok := cfg.RootCAs.AppendCertsFromPEM([]byte(t.CACertificates)); !ok {
-			return nil, fmt.Errorf("ldap: no certificates found in ca-certificates content")
+			return nil, fmt.Errorf("no certificates found in ca-certificates content")
 		}
 	}
 	for _, cert := range t.CACertificateFiles {
 		pemData, err := loadFile(cert)
 		if err != nil {
-			return nil, fmt.Errorf("ldap: loading ca-certificates failed: %v", err)
+			return nil, fmt.Errorf("loading ca-certificate file failed: %v", err)
 		}
 
 		ok := cfg.RootCAs.AppendCertsFromPEM(pemData)
 		if !ok {
-			return nil, fmt.Errorf("ldap: no certificates found in file '%s'", cert)
+			return nil, fmt.Errorf("no ca-certificates found in file '%s'", cert)
 		}
 	}
 	return cfg, nil
