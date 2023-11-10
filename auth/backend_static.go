@@ -72,7 +72,7 @@ func (b *StaticBackend) watchFileEventCB(event fsnotify.Event) {
 		b.dbgLog.Printf("static: found invalid line: %v", err)
 	})
 	if err != nil {
-		b.infoLog.Printf("static: reloading htpasswd file failed: %v", err)
+		b.infoLog.Printf("static: reloading htpasswd file failed: %v, keeping current database", err)
 		return
 	}
 	b.dbgLog.Printf("static: htpasswd file successfully reloaded")

@@ -38,7 +38,9 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/whawty/auth/store"
 )
 
@@ -54,6 +56,7 @@ type WhawtyAuthConfig struct {
 
 type WhawtyAuthBackend struct {
 	store          *store.Dir
+	storeMutex     sync.RWMutex
 	upgradeChan    chan whawtyUpgradeRequest
 	upgradeTLSConf *tls.Config
 	infoLog        *log.Logger
@@ -83,6 +86,7 @@ func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (
 			return nil, err
 		}
 	}
+	runFileWatcher([]string{conf.ConfigFile}, b.watchFileErrorCB, b.watchFileEventCB)
 	infoLog.Printf("whawty-auth: successfully intialized store at %s (%d parameter-sets loaded)", s.BaseDir, len(s.Params))
 	return b, nil
 }
@@ -156,7 +160,30 @@ func (b *WhawtyAuthBackend) runRemoteUpgrader(remote string) error {
 	return nil
 }
 
+func (b *WhawtyAuthBackend) watchFileErrorCB(err error) {
+	b.infoLog.Printf("whawty-auth: got error from fsnotify watcher: %v", err)
+}
+
+func (b *WhawtyAuthBackend) watchFileEventCB(event fsnotify.Event) {
+	newdir, err := store.NewDirFromConfig(event.Name)
+	if err != nil {
+		b.infoLog.Printf("whawty-auth: reloading store failed: %v, keeping current configuration", err)
+		return
+	}
+	if err := newdir.Check(); err != nil {
+		b.infoLog.Printf("whawty-auth: reloading store failed: %v, keeping current configuration", err)
+		return
+	}
+
+	b.storeMutex.Lock()
+	defer b.storeMutex.Unlock()
+	b.store = newdir
+	b.infoLog.Printf("whawty-auth: successfully reloaded from: %s (%d parameter-sets loaded)", event.Name, len(b.store.Params))
+}
+
 func (b *WhawtyAuthBackend) Authenticate(username, password string) error {
+	b.storeMutex.RLock()
+	defer b.storeMutex.RUnlock()
 	ok, _, upgradeable, _, err := b.store.Authenticate(username, password)
 	if ok && upgradeable && b.upgradeChan != nil {
 		select {
