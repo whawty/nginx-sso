@@ -49,10 +49,12 @@ const (
 )
 
 type WhawtyAuthConfig struct {
-	ConfigFile       string           `yaml:"store"`
-	AutoReload       bool             `yaml:"autoreload"`
-	RemoteUpgradeUrl string           `yaml:"remote-upgrade-url"`
-	RemoteUpgradeTLS *TLSClientConfig `yaml:"remote-upgrade-tls"`
+	ConfigFile     string `yaml:"store"`
+	AutoReload     bool   `yaml:"autoreload"`
+	RemoteUpgrades *struct {
+		URL string           `yaml:"url"`
+		TLS *TLSClientConfig `yaml:"tls"`
+	} `yaml:"remote-upgrades"`
 }
 
 type WhawtyAuthBackend struct {
@@ -76,13 +78,13 @@ func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (
 	}
 
 	b := &WhawtyAuthBackend{store: s, infoLog: infoLog, dbgLog: dbgLog}
-	if conf.RemoteUpgradeUrl != "" {
-		if conf.RemoteUpgradeTLS != nil {
-			if b.upgradeTLSConf, err = conf.RemoteUpgradeTLS.ToGoTLSConfig(); err != nil {
+	if conf.RemoteUpgrades != nil {
+		if conf.RemoteUpgrades.TLS != nil {
+			if b.upgradeTLSConf, err = conf.RemoteUpgrades.TLS.ToGoTLSConfig(); err != nil {
 				return nil, fmt.Errorf("whawty-auth: remote-upgrade: %v", err)
 			}
 		}
-		err = b.runRemoteUpgrader(conf.RemoteUpgradeUrl)
+		err = b.runRemoteUpgrader(conf.RemoteUpgrades.URL)
 		if err != nil {
 			return nil, err
 		}
