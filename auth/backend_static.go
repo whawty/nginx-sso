@@ -39,7 +39,8 @@ import (
 )
 
 type StaticConfig struct {
-	HTPasswd string `yaml:"htpasswd"`
+	HTPasswd   string `yaml:"htpasswd"`
+	AutoReload bool   `yaml:"autoreload"`
 }
 
 type StaticBackend struct {
@@ -58,7 +59,9 @@ func NewStaticBackend(conf *StaticConfig, infoLog, dbgLog *log.Logger) (Backend,
 	}
 
 	b := &StaticBackend{htpasswd: file, infoLog: infoLog, dbgLog: dbgLog}
-	runFileWatcher([]string{conf.HTPasswd}, b.watchFileErrorCB, b.watchFileEventCB)
+	if conf.AutoReload {
+		runFileWatcher([]string{conf.HTPasswd}, b.watchFileErrorCB, b.watchFileEventCB)
+	}
 	infoLog.Printf("static: successfully initilized database: %s", conf.HTPasswd)
 	return b, nil
 }

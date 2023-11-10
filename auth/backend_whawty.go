@@ -50,6 +50,7 @@ const (
 
 type WhawtyAuthConfig struct {
 	ConfigFile       string           `yaml:"store"`
+	AutoReload       bool             `yaml:"autoreload"`
 	RemoteUpgradeUrl string           `yaml:"remote-upgrade-url"`
 	RemoteUpgradeTLS *TLSClientConfig `yaml:"remote-upgrade-tls"`
 }
@@ -86,7 +87,9 @@ func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (
 			return nil, err
 		}
 	}
-	runFileWatcher([]string{conf.ConfigFile}, b.watchFileErrorCB, b.watchFileEventCB)
+	if conf.AutoReload {
+		runFileWatcher([]string{conf.ConfigFile}, b.watchFileErrorCB, b.watchFileEventCB)
+	}
 	infoLog.Printf("whawty-auth: successfully intialized store at %s (%d parameter-sets loaded)", s.BaseDir, len(s.Params))
 	return b, nil
 }
