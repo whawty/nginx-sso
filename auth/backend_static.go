@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/tg123/go-htpasswd"
 )
 
@@ -57,12 +58,27 @@ func NewStaticBackend(conf *StaticConfig, infoLog, dbgLog *log.Logger) (Backend,
 	}
 
 	b := &StaticBackend{htpasswd: file, infoLog: infoLog, dbgLog: dbgLog}
+	runFileWatcher([]string{conf.HTPasswd}, b.watchFileErrorCB, b.watchFileEventCB)
 	infoLog.Printf("static: successfully initilized database: %s", conf.HTPasswd)
 	return b, nil
 }
 
+func (b *StaticBackend) watchFileErrorCB(err error) {
+	b.infoLog.Printf("static: got error from fsnotify watcher: %v", err)
+}
+
+func (b *StaticBackend) watchFileEventCB(event fsnotify.Event) {
+	err := b.htpasswd.Reload(func(err error) {
+		b.dbgLog.Printf("static: found invalid line: %v", err)
+	})
+	if err != nil {
+		b.infoLog.Printf("static: reloading htpasswd file failed: %v", err)
+		return
+	}
+	b.dbgLog.Printf("static: htpasswd file successfully reloaded")
+}
+
 func (b *StaticBackend) Authenticate(username, password string) error {
-	// TODO: call b.htpasswd.Reload() ??
 	ok := b.htpasswd.Match(username, password)
 	if !ok {
 		return fmt.Errorf("invalid username or password")

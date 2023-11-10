@@ -37,6 +37,9 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 func loadFile(filename string) ([]byte, error) {
@@ -87,4 +90,53 @@ func (t TLSClientConfig) ToGoTLSConfig() (*tls.Config, error) {
 		}
 	}
 	return cfg, nil
+}
+
+type watchFileErrorCB func(error)
+type watchFileEventCB func(fsnotify.Event)
+
+func watchFileLoop(w *fsnotify.Watcher, files []string, errorCB watchFileErrorCB, eventCB watchFileEventCB) {
+	for {
+		select {
+		case err, ok := <-w.Errors:
+			if !ok {
+				return
+			}
+			errorCB(err)
+		case event, ok := <-w.Events:
+			if !ok {
+				return
+			}
+
+			for _, file := range files {
+				if file == event.Name {
+					eventCB(event)
+					break
+				}
+			}
+		}
+	}
+}
+
+func runFileWatcher(files []string, errorCB watchFileErrorCB, eventCB watchFileEventCB) error {
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	go watchFileLoop(w, files, errorCB, eventCB)
+
+	for _, file := range files {
+		st, err := os.Lstat(file)
+		if err != nil {
+			return err
+		}
+		if st.IsDir() {
+			return fmt.Errorf("'%s' is a directory, not a file", file)
+		}
+
+		if err = w.Add(filepath.Dir(file)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
