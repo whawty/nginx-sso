@@ -153,7 +153,10 @@ func (h *HandlerContext) webHandleLogout(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, WebLoginPath) // TODO follow redir??
 }
 
-func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
+func runWeb(config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
+	if config.Listen == "" {
+		config.Listen = ":http"
+	}
 	if config.Login.Title == "" {
 		config.Login.Title = "whawty.nginx-sso Login"
 	}
@@ -189,6 +192,10 @@ func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller
 	r.POST(WebLoginPath, h.webHandleLoginPost)
 	r.GET(WebLogoutPath, h.webHandleLogout)
 
+	listener, err := net.Listen("tcp", config.Listen)
+	if err != nil {
+		return err
+	}
 	server := &http.Server{Handler: r, WriteTimeout: 60 * time.Second, ReadTimeout: 60 * time.Second}
 	if config != nil && config.TLS != nil {
 		server.TLSConfig, err = config.TLS.ToGoTLSConfig()
@@ -201,19 +208,4 @@ func runWeb(listener net.Listener, config *WebConfig, cookies *cookie.Controller
 	}
 	wl.Printf("web-api: listening on '%s'", listener.Addr())
 	return server.Serve(listener)
-}
-
-func runWebAddr(addr string, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
-	if addr == "" {
-		addr = ":http"
-	}
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-	return runWeb(ln.(*net.TCPListener), config, cookies, auth)
-}
-
-func runWebListener(listener *net.TCPListener, config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
-	return runWeb(listener, config, cookies, auth)
 }

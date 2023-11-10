@@ -31,11 +31,9 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"sync"
 
 	"github.com/urfave/cli"
 	"github.com/whawty/nginx-sso/auth"
@@ -69,21 +67,11 @@ func cmdRun(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 2)
 	}
 
-	webAddrs := c.StringSlice("web-addr")
-	var wg sync.WaitGroup
-	for _, webAddr := range webAddrs {
-		a := webAddr
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := runWebAddr(a, &conf.Web, cookies, auth); err != nil {
-				fmt.Printf("warning running web interface(%s) failed: %s\n", a, err)
-			}
-		}()
+	if err := runWeb(&conf.Web, cookies, auth); err != nil {
+		return cli.NewExitError(err.Error(), 4)
 	}
-	wg.Wait()
 
-	return cli.NewExitError(fmt.Sprintf("shutting down since all listening sockets have closed."), 0)
+	return nil
 }
 
 func main() {
@@ -101,15 +89,8 @@ func main() {
 	}
 	app.Commands = []cli.Command{
 		{
-			Name:  "run",
-			Usage: "run the sso backend",
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:   "web-addr",
-					Usage:  "address to listen on for web API",
-					EnvVar: "WHAWTY_NGINX_SSO_WEB_ADDR",
-				},
-			},
+			Name:   "run",
+			Usage:  "run the sso backend",
 			Action: cmdRun,
 		},
 	}

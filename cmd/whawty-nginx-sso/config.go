@@ -47,8 +47,9 @@ type LoginConfig struct {
 }
 
 type WebConfig struct {
-	TLS   *tlsconfig.TLSConfig `yaml:"tls"`
-	Login LoginConfig          `yaml:"login"`
+	Listen string               `yaml:"listen"`
+	TLS    *tlsconfig.TLSConfig `yaml:"tls"`
+	Login  LoginConfig          `yaml:"login"`
 }
 
 type Config struct {

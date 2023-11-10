@@ -70,6 +70,7 @@ auth:
   #   user-search-filter: "(&(objectClass=inetOrgPerson)(uid={0}))"
 
 web:
+  listen: "127.0.0.1:1234"
   login:
     title: "example.com SSO"
     # templates: path/to/templates  ## will look for *.htmpl files here
