@@ -2,12 +2,12 @@
 .\"     Title: whawty-nginx-sso
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 11/04/2023
+.\"      Date: 11/11/2023
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "WHAWTY\-NGINX\-SSO" "8" "11/04/2023" "\ \&" "\ \&"
+.TH "WHAWTY\-NGINX\-SSO" "8" "11/11/2023" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,7 +34,7 @@ whawty-nginx-sso \- simple SSO system for nginx
 \fBwhawty\-nginx\-sso\fR \fI[global options]\fR \fB<command>\fR \fI[command options]\fR \fI[arguments \&... ]\fR
 .SH "DESCRIPTION"
 .sp
-\fBwhawty\-nginx\-sso\fR is a simple daemon that \&.\&. tbd \&.\&.
+\fBwhawty\-nginx\-sso\fR is a simple agent that can be used to implement a cookie\-based SSO scheme for the web\&. For this purpose the agent hosts a login form to prompt users for login credentials\&. These credentials are then verified using the configured authentication backend and in case they match a session cookie will be generated\&. The cookie is signed using an asymmetric signature algorithm and can whence be verfied by other \fBwhawty\-nginx\-sso\fR instances which don\(cqt need to have access to the private signing key\&. To control the access to services the \fBwhawty\-nginx\-sso\fR agent offers a endpoint intended to be used with the ngx_http_auth_request_module\&. Depending on the cookie options configured the session\- cookies generated can be used for all services of a given domain\&. Even if those services are hosted by different machines as long as they are published by nginx\&. Either directly or in the form of a reverse\-proxy\&.
 .SH "GLOBAL OPTIONS"
 .sp
 The following global options can be passed to \fBwhawty\-nginx\-sso\fR\&.
@@ -51,21 +51,12 @@ Print version information and exit\&.
 .SH "COMMANDS"
 .sp
 Any of the following commands supports \fB\-h | \-\-help\fR as an option\&. This will print extra help information for the command\&. All these commands use the auth store directory as specified by the global store configuration file\&.
-.SS "run \fI[options]\fR"
+.SS "run"
 .sp
-\&...tbd\&...
-.SS "runsa"
-.sp
-This is basically the same as \fBrun\fR but expects all sockets to be passed via systemd socket activation\&. \fBwhawty\-nginx\-sso\fR will run the web\-api on all TCP sockets\&. All other socket types are ignored\&.
-.SH "SIGNALS"
-.sp
-On HUP \fBwhawty\-nginx\-sso\fR tries to reload the configuration\&. I also runs a basic consistency check\&. If there is any error during that process the old configuration will be kept\&.
+Runs the \fBwhawty\-nginx\-sso\fR agent as configured by the global configuration file\&. This command has no command\-specific options
 .SH "BUGS"
 .sp
 Most likely there are some bugs in \fBwhawty\-nginx\-sso\fR\&. If you find a bug, please let the developers know at http://github\&.com/whawty/nginx\-sso\&. Of course, pull requests are preferred\&.
-.SH "SEE ALSO"
-.sp
-\fBpam\-whawty\fR(8)
 .SH "AUTHORS"
 .sp
 Christian Pointner <equinox@spreadspace\&.org>
