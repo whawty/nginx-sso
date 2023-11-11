@@ -4,25 +4,30 @@ cookie:
   # secure: true
   expire: 23h
   keys:
-  - name: foo-priv
+  # The first private key in this list will be used to sign new cookies. Any other key will be used
+  # to verfiy incoming cookies. If an instance has only access to public keys it will not be able to
+  # generate session cookies.
+  # The name of the key is part of the signature and whence both the private and the corresponding
+  # public, that will be used in verify-only instances, must use the same name.
+  - name: 2023-11
     ed25519:
       ## generate with `openssl genpkey -algorithm ED25519`
       private-key: |
         -----BEGIN PRIVATE KEY-----
         MC4CAQAwBQYDK2VwBCIEIIgITVt9BRor5Dn2v7rQu2I8siicIUGr7+QS9PqNSSXk
         -----END PRIVATE KEY-----
-  # - name: foo-pub
+  # - name: 2023-11
   #   ed25519:
   #     ## generate with `openssl pkey -pubout` and paste in pem-encoded private key
   #     public-key: |
   #       -----BEGIN PUBLIC KEY-----
   #       MCowBQYDK2VwAyEA7dAVNSCBGIBHsCDX0z1qOsMIrErkgLbgybWW17YkleU=
   #       -----END PUBLIC KEY-----
-  # - name: bar-priv
+  # - name: 2022-11
   #   ed25519:
   #     ## generate with `openssl genpkey -algorithm ED25519 -out ./contrib/bar_ed25519_priv.pem`
   #     private-key-file: ./contrib/bar_ed25519_priv.pem
-  # - name: bar-pub
+  # - name: 2022-11
   #   ed25519:
   #     ## generate with `openssl pkey -in ./contrib/bar_ed25519_priv.pem -pubout -out ./contrib/bar_ed25519_pub.pem`
   #     public-key-file: ./contrib/bar_ed25519_pub.pem
