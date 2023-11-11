@@ -17,7 +17,7 @@ they are published by nginx. Either directly or in the form of a reverse-proxy.
 At the moment whawty-nginx-sso has support for 3 authentication backends
 
  * static files (htpasswd)
- * [whawty-auth](https://github.com/whawty/auth) (including support for remote-upgrades
+ * [whawty-auth](https://github.com/whawty/auth) (including support for remote-upgrades)
  * LDAP
 
 For now whawty-nginx-sso only supports username and passwords but there are plans to support
