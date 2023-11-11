@@ -34,6 +34,8 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/flosch/pongo2/v6"
@@ -44,20 +46,13 @@ import (
 	"gitlab.com/go-box/pongo2gin/v6"
 )
 
-const (
-	WebAuthPath     = "/auth"
-	WebLoginPath    = "/login"
-	WebLogoutPath   = "/logout"
-	WebUIPathPrefix = "/ui/"
-)
-
 type HandlerContext struct {
 	conf    *WebConfig
 	cookies *cookie.Controller
 	auth    auth.Backend
 }
 
-func (h *HandlerContext) webVerifyCookie(c *gin.Context) (*cookie.Payload, error) {
+func (h *HandlerContext) verifyCookie(c *gin.Context) (*cookie.Payload, error) {
 	cookie, err := c.Cookie(h.cookies.Options().Name)
 	if err != nil {
 		return nil, err
@@ -72,8 +67,19 @@ func (h *HandlerContext) webVerifyCookie(c *gin.Context) (*cookie.Payload, error
 	return &session, nil
 }
 
-func (h *HandlerContext) webHandleAuth(c *gin.Context) {
-	session, err := h.webVerifyCookie(c)
+func (h *HandlerContext) getBasePath(c *gin.Context) string {
+	if h.conf.Login.BasePath != "" {
+		return strings.TrimRight(h.conf.Login.BasePath, "/")
+	}
+	hdr := c.GetHeader("X-BasePath")
+	if hdr != "" {
+		return strings.TrimRight(hdr, "/")
+	}
+	return ""
+}
+
+func (h *HandlerContext) handleAuth(c *gin.Context) {
+	session, err := h.verifyCookie(c)
 	if err != nil {
 		c.Data(http.StatusUnauthorized, "text/plain", []byte(err.Error()))
 		return
@@ -82,12 +88,15 @@ func (h *HandlerContext) webHandleAuth(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (h *HandlerContext) webHandleLoginGet(c *gin.Context) {
-	session, err := h.webVerifyCookie(c)
+func (h *HandlerContext) handleLoginGet(c *gin.Context) {
+	login := h.conf.Login
+	login.BasePath = h.getBasePath(c)
+
+	session, err := h.verifyCookie(c)
 	if err == nil && session != nil {
 		// TODO: follow redir?
 		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
-			"login":    h.conf.Login,
+			"login":    login,
 			"username": session.Username,
 			"expires":  time.Unix(session.Expires, 0),
 		})
@@ -96,19 +105,22 @@ func (h *HandlerContext) webHandleLoginGet(c *gin.Context) {
 
 	redirect, _ := c.GetQuery("redir")
 	c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
-		"login":    h.conf.Login,
+		"login":    login,
 		"redirect": redirect,
 	})
 	return
 }
 
-func (h *HandlerContext) webHandleLoginPost(c *gin.Context) {
+func (h *HandlerContext) handleLoginPost(c *gin.Context) {
+	login := h.conf.Login
+	login.BasePath = h.getBasePath(c)
+
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 	redirect := c.PostForm("redirect")
 	if username == "" || password == "" {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
-			"login":    h.conf.Login,
+			"login":    login,
 			"redirect": redirect,
 			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "missing parameter", Message: "username and password are mandatory"},
 		})
@@ -118,7 +130,7 @@ func (h *HandlerContext) webHandleLoginPost(c *gin.Context) {
 	err := h.auth.Authenticate(username, password)
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
-			"login":    h.conf.Login,
+			"login":    login,
 			"redirect": redirect,
 			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "login failed", Message: err.Error()},
 		})
@@ -128,7 +140,7 @@ func (h *HandlerContext) webHandleLoginPost(c *gin.Context) {
 	value, opts, err := h.cookies.Mint(cookie.Payload{Username: username})
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
-			"login":    h.conf.Login,
+			"login":    login,
 			"redirect": redirect,
 			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "failed to generate cookie", Message: err.Error()},
 		})
@@ -138,7 +150,7 @@ func (h *HandlerContext) webHandleLoginPost(c *gin.Context) {
 
 	if redirect == "" {
 		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
-			"login":    h.conf.Login,
+			"login":    login,
 			"username": username,
 			"expires":  time.Now().Add(time.Duration(opts.MaxAge) * time.Second),
 		})
@@ -147,10 +159,10 @@ func (h *HandlerContext) webHandleLoginPost(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, redirect)
 }
 
-func (h *HandlerContext) webHandleLogout(c *gin.Context) {
+func (h *HandlerContext) handleLogout(c *gin.Context) {
 	opts := h.cookies.Options()
 	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
-	c.Redirect(http.StatusSeeOther, WebLoginPath) // TODO follow redir??
+	c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login")) // TODO follow redir??
 }
 
 func runWeb(config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
@@ -159,9 +171,6 @@ func runWeb(config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (e
 	}
 	if config.Login.Title == "" {
 		config.Login.Title = "whawty.nginx-sso Login"
-	}
-	if config.Login.UIPath == "" {
-		config.Login.UIPath = WebUIPathPrefix
 	}
 
 	gin.SetMode(gin.ReleaseMode)
@@ -183,14 +192,13 @@ func runWeb(config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (e
 		TemplateSet: pongo2.NewSet("html", htmlTmplLoader),
 		ContentType: "text/html; charset=utf-8"})
 
-	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, WebLoginPath) })
-	r.StaticFS(WebUIPathPrefix, ui.StaticAssets)
-
 	h := &HandlerContext{conf: config, cookies: cookies, auth: auth}
-	r.GET(WebAuthPath, h.webHandleAuth)
-	r.GET(WebLoginPath, h.webHandleLoginGet)
-	r.POST(WebLoginPath, h.webHandleLoginPost)
-	r.GET(WebLogoutPath, h.webHandleLogout)
+	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login")) })
+	r.StaticFS("/ui/", ui.StaticAssets)
+	r.GET("/auth", h.handleAuth)
+	r.GET("/login", h.handleLoginGet)
+	r.POST("/login", h.handleLoginPost)
+	r.GET("/logout", h.handleLogout)
 
 	listener, err := net.Listen("tcp", config.Listen)
 	if err != nil {

@@ -42,7 +42,7 @@ import (
 
 type LoginConfig struct {
 	TemplatesPath string `yaml:"templates"`
-	UIPath        string `yaml:"ui-path"`
+	BasePath      string `yaml:"base-path"`
 	Title         string `yaml:"title"`
 }
 

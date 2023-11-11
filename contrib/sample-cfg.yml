@@ -81,8 +81,11 @@ web:
   listen: "127.0.0.1:1234"
   login:
     title: "example.com SSO"
-    # templates: path/to/templates  ## will look for *.htmpl files here
-    # ui-path: /path/to                ## http path where static ui files are hosted
+    #### this directory must contain login.htmpl and logged-in.htmpl, if left empty the built-in assets will be used
+    # templates: path/to/templates
+    #### the http base path where the UI is hosted, if left empty the web interface will look for the HTTP header
+    #### X-BasePath and if this is empty as well '/' will be used.
+    # base-path: /sso/
 
   # tls:
   #   certificate: "/path/to/server-crt.pem"

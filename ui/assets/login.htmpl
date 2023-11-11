@@ -7,18 +7,18 @@
     <meta name="description" content="whawty nginx-sso login">
     <meta name="author" content="Christian Pointner <equinox@spreadspace.org>">
 
-    <link href="{{ login.UIPath }}bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="{{ login.UIPath }}fontawesome/css/fontawesome.min.css" rel="stylesheet">
-    <link href="{{ login.UIPath }}fontawesome/css/solid.min.css" rel="stylesheet">
-    <link href="{{ login.UIPath }}css/main.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/fontawesome/css/fontawesome.min.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/fontawesome/css/solid.min.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/css/main.css" rel="stylesheet">
   </head>
   <body>
     <div class="container-fluid">
       <div id="login-box">
-        <form id="login-form" class="form-auth" role="form" action="/login" method="post">
-          <img class="d-block d-xs-none d-sm-none" src="{{ login.UIPath }}img/logo-small.png" alt="logo" />
+        <form id="login-form" class="form-auth" role="form" action="{{ login.BasePath }}/login" method="post">
+          <img class="d-block d-xs-none d-sm-none" src="{{ login.BasePath }}/ui/img/logo-small.png" alt="logo" />
           <div class="loginspacer d-xs-block d-sm-block">&nbsp;</div>
-          <img class="d-none d-xs-block d-sm-block" src="{{ login.UIPath }}img/logo.png" alt="logo" />
+          <img class="d-none d-xs-block d-sm-block" src="{{ login.BasePath }}/ui/img/logo.png" alt="logo" />
           <h1 class="form-auth-heading">{{ login.Title }}</h1>
           <input id="login-username" type="text" class="form-control" placeholder="Username" name="username" required autofocus>
           <input id="login-password" type="password" class="form-control" placeholder="Password" name="password" required>
@@ -35,6 +35,6 @@
         </form>
       </div>
     </div>
-    <script src="{{ login.UIPath }}bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ login.BasePath }}/ui/bootstrap/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

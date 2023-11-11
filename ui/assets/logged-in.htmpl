@@ -7,10 +7,10 @@
     <meta name="description" content="whawty nginx-sso login">
     <meta name="author" content="Christian Pointner <equinox@spreadspace.org>">
 
-    <link href="{{ login.UIPath }}bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="{{ login.UIPath }}fontawesome/css/fontawesome.min.css" rel="stylesheet">
-    <link href="{{ login.UIPath }}fontawesome/css/solid.min.css" rel="stylesheet">
-    <link href="{{ login.UIPath }}css/main.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/fontawesome/css/fontawesome.min.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/fontawesome/css/solid.min.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/css/main.css" rel="stylesheet">
   </head>
   <body>
     <div class="container-fluid">
@@ -36,7 +36,7 @@
           <div class="row">
             <div class="col-md-4"></div>
             <div class="col-md-4">
-              <form method="get" action="/logout">
+              <form method="get" action="{{ login.BasePath }}/logout">
                 <button type="submit" class="btn btn-danger btn-lg"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
               </form>
             </div>
