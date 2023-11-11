@@ -45,8 +45,7 @@ COMMANDS
 --------
 
 Any of the following commands supports *-h | --help* as an option. This will print
-extra help information for the command. All these commands use the auth store directory
-as specified by the global store configuration file.
+extra help information for the command.
 
 run
 ~~~
