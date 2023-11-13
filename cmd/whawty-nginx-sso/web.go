@@ -156,7 +156,7 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 		})
 		return
 	}
-	c.Redirect(http.StatusTemporaryRedirect, redirect)
+	c.Redirect(http.StatusSeeOther, redirect)
 }
 
 func (h *HandlerContext) handleLogout(c *gin.Context) {
