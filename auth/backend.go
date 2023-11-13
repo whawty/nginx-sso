@@ -46,6 +46,13 @@ type Backend interface {
 	Authenticate(username, password string) error
 }
 
+type NullBackend struct {
+}
+
+func (b *NullBackend) Authenticate(username, password string) error {
+	return fmt.Errorf("invalid username/password")
+}
+
 func NewBackend(conf *Config, infoLog, dbgLog *log.Logger) (Backend, error) {
 	if infoLog == nil {
 		infoLog = log.New(io.Discard, "", 0)
@@ -63,5 +70,6 @@ func NewBackend(conf *Config, infoLog, dbgLog *log.Logger) (Backend, error) {
 	if conf.Whawty != nil {
 		return NewWhawtyAuthBackend(conf.Whawty, infoLog, dbgLog)
 	}
-	return nil, fmt.Errorf("no valid authentication backend found in configuration")
+	infoLog.Printf("auth: no valid backend configuration found - this instance will only verify cookies")
+	return &NullBackend{}, nil
 }
