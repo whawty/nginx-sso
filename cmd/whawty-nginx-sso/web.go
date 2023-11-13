@@ -162,7 +162,11 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 func (h *HandlerContext) handleLogout(c *gin.Context) {
 	opts := h.cookies.Options()
 	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
-	c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login")) // TODO follow redir??
+	redirect, _ := c.GetQuery("redir")
+	if redirect == "" {
+		redirect = path.Join(h.getBasePath(c), "login")
+	}
+	c.Redirect(http.StatusSeeOther, redirect)
 }
 
 func runWeb(config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
