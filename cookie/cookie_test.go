@@ -34,47 +34,19 @@ import (
 	"bytes"
 	"reflect"
 	"testing"
+
+	"github.com/oklog/ulid/v2"
 )
-
-func TestSessionEncode(t *testing.T) {
-	var s Session
-	s.Username = "test"
-	s.Expires = 1000
-
-	expected := []byte("{\"u\":\"test\",\"e\":1000}\n") // TODO: json.Encoder always adds a new-line....
-	b := &bytes.Buffer{}
-	if err := s.Encode(b); err != nil {
-		t.Fatal("unexpected error:", err)
-	}
-	encoded := b.Bytes()
-	if bytes.Compare(expected, encoded) != 0 {
-		t.Fatalf("encoding cookie session failed, expected: '%s', got '%s'", expected, encoded)
-	}
-}
-
-func TestSessionDecode(t *testing.T) {
-	encoded := []byte("{\"u\":\"test\",\"e\":1000}")
-	var expected Session
-	expected.Username = "test"
-	expected.Expires = 1000
-
-	var decoded Session
-	err := decoded.Decode(bytes.NewReader(encoded))
-	if err != nil {
-		t.Fatal("unexpected error:", err)
-	}
-	if !reflect.DeepEqual(decoded, expected) {
-		t.Fatalf("decoding cookie session failed, expected: '%+v', got '%+v'", expected, decoded)
-	}
-}
 
 func TestValueToString(t *testing.T) {
 	var v Value
-	v.payload = []byte("{\"u\":\"test\",\"e\":1000}")
+	id := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
+	s := []byte("{\"u\":\"test\",\"e\":1000}")
+	v.payload = append(id.Bytes(), s...)
 	v.signature = []byte("this-is-not-a-signature")
 
 	encoded := v.String()
-	expected := "eyJ1IjoidGVzdCIsImUiOjEwMDB9.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
+	expected := "ABEiM0RVZneImaq7zN3u_3sidSI6InRlc3QiLCJlIjoxMDAwfQ.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
 
 	if expected != encoded {
 		t.Fatalf("encoding cookie value failed, expected: '%s', got '%s'", expected, encoded)
@@ -92,14 +64,16 @@ func TestValueFromString(t *testing.T) {
 		{".", false},
 		{".bar", false},
 		{"foo.", false},
-		{"foo.bar", true},
-		{"foo.bar.blub", false},
-		{"foo/bar.blub", false},
-		{"foo+bar.blub", false},
-		{"foo.bar/blub", false},
-		{"foo.bar+blub", false},
-		{"foo.bar=", false},
-		{"foo=.bar", false},
+		{"foo.bar", false},
+		{"fooooooooooooooooooooo.bar", false},
+		{"foooooooooooooooooooooo.bar", true},
+		{"foooooooooooooooooooooo.bar.blub", false},
+		{"foooooooooooooooooooooo/bar.blub", false},
+		{"foooooooooooooooooooooo+bar.blub", false},
+		{"foooooooooooooooooooooo.bar/blub", false},
+		{"foooooooooooooooooooooo.bar+blub", false},
+		{"foooooooooooooooooooooo.bar=", false},
+		{"foooooooooooooooooooooo=.bar", false},
 	}
 	for _, vector := range vectors {
 		var v Value
@@ -115,9 +89,10 @@ func TestValueFromString(t *testing.T) {
 		}
 	}
 
-	encoded := "eyJ1IjoidGVzdCIsImUiOjEwMDB9.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
+	encoded := "ABEiM0RVZneImaq7zN3u_3sidSI6InRlc3QiLCJlIjoxMDAwfQ.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
 	expectedSignature := []byte("this-is-not-a-signature")
 	expectedSession := Session{Username: "test", Expires: 1000}
+	expectedId := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
 
 	var v Value
 	err := v.FromString(encoded)
@@ -127,12 +102,22 @@ func TestValueFromString(t *testing.T) {
 	if bytes.Compare(v.signature, expectedSignature) != 0 {
 		t.Fatalf("encoding cookie session failed, expected: '%s', got '%s'", expectedSignature, v.signature)
 	}
-	var s Session
-	err = s.Decode(bytes.NewReader(v.payload))
+
+	s, err := v.Session()
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	if !reflect.DeepEqual(s, expectedSession) {
 		t.Fatalf("decoding cookie session failed, expected: '%+v', got '%+v'", expectedSession, s)
 	}
+
+	id, err := v.ID()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if id.Compare(expectedId) != 0 {
+		t.Fatalf("decoding cookie id failed, expected: '%v', got '%v'", expectedId, id)
+	}
 }
+
+// TODO: add tests for: Value.generatePayload(s Session) (id ulid.ULID, err error)

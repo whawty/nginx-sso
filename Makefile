@@ -55,6 +55,9 @@ cover:
 	$(GOCMD) test -v `$(GOCMD) list ./...` -covermode=count -coverprofile=./.coverage/profile
 	$(GOCMD) tool cover -html=./.coverage/profile -o ./.coverage/index.html
 
+serve-cover:
+	cd ./.coverage; python3 -m http.server
+
 ui:
 	$(GOCMD) generate ./ui
 
