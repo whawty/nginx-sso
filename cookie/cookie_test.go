@@ -60,7 +60,6 @@ func TestValueFromString(t *testing.T) {
 	}{
 		{"", false},
 		{"foo", false},
-		{"", false},
 		{".", false},
 		{".bar", false},
 		{"foo.", false},
