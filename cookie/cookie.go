@@ -54,6 +54,26 @@ type Value struct {
 	signature []byte
 }
 
+func MakeValue(id ulid.ULID, s Session) (v *Value, err error) {
+	payload := make([]byte, ulidLength, 128)
+
+	if err = id.MarshalBinaryTo(payload); err != nil {
+		return
+	}
+
+	b := bytes.NewBuffer(payload)
+	var encoded []byte
+	if encoded, err = json.Marshal(s); err != nil {
+		return
+	}
+	if err = json.Compact(b, encoded); err != nil {
+		return
+	}
+
+	v = &Value{payload: b.Bytes()}
+	return
+}
+
 func (v *Value) String() string {
 	return base64.RawURLEncoding.EncodeToString(v.payload) + "." + base64.RawURLEncoding.EncodeToString(v.signature)
 }
@@ -77,27 +97,6 @@ func (v *Value) FromString(encoded string) (err error) {
 	if err != nil {
 		return fmt.Errorf("invalid cookie value: %v", err)
 	}
-	return
-}
-
-func (v *Value) generatePayload(s Session) (id ulid.ULID, err error) {
-	payload := make([]byte, ulidLength, 128) // TODO: hardcoded capacity?
-
-	id = ulid.Make()
-	if err = id.MarshalBinaryTo(payload); err != nil {
-		return
-	}
-
-	b := bytes.NewBuffer(payload)
-	var encoded []byte
-	if encoded, err = json.Marshal(s); err != nil {
-		return
-	}
-	if err = json.Compact(b, encoded); err != nil {
-		return
-	}
-
-	v.payload = b.Bytes()
 	return
 }
 

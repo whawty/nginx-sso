@@ -38,6 +38,8 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+// TODO: add tests for: MakeValue()
+
 func TestValueToString(t *testing.T) {
 	var v Value
 	id := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
@@ -118,5 +120,3 @@ func TestValueFromString(t *testing.T) {
 		t.Fatalf("decoding cookie id failed, expected: '%v', got '%v'", expectedId, id)
 	}
 }
-
-// TODO: add tests for: Value.generatePayload(s Session) (id ulid.ULID, err error)

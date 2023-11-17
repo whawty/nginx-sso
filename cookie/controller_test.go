@@ -34,6 +34,8 @@ import (
 	"crypto/ed25519"
 	"testing"
 	"time"
+
+	"github.com/oklog/ulid/v2"
 )
 
 func TestNewController(t *testing.T) {
@@ -195,8 +197,8 @@ func TestVerify(t *testing.T) {
 	}
 
 	testSession := Session{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
-	testValue := &Value{}
-	if _, err = testValue.generatePayload(testSession); err != nil {
+	testValue, err := MakeValue(ulid.Make(), testSession)
+	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
@@ -225,7 +227,7 @@ func TestVerify(t *testing.T) {
 		t.Fatal("extracting an ivalid payload should fail")
 	}
 
-	if _, err := testValue.generatePayload(Session{Username: "test-user", Expires: time.Now().Unix()}); err != nil {
+	if testValue, err = MakeValue(ulid.Make(), Session{Username: "test-user", Expires: time.Now().Unix()}); err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
@@ -237,7 +239,7 @@ func TestVerify(t *testing.T) {
 		t.Fatal("expired cookie should not successfully verify")
 	}
 
-	if _, err = testValue.generatePayload(testSession); err != nil {
+	if testValue, err = MakeValue(ulid.Make(), testSession); err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
@@ -285,8 +287,8 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	testSigner := &Ed25519SignerVerifier{context: conf.Name + "_" + testSignerName, priv: priv, pub: pub}
 
 	testSession.Expires = time.Now().Add(time.Hour).Unix()
-	testValue := &Value{}
-	if _, err = testValue.generatePayload(testSession); err != nil {
+	testValue, err := MakeValue(ulid.Make(), testSession)
+	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	testValue.signature, err = testSigner.Sign(testValue.payload)

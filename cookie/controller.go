@@ -151,9 +151,9 @@ func (c *Controller) New(s Session) (value string, opts Options, err error) {
 	}
 
 	s.Expires = time.Now().Add(c.conf.Expire).Unix()
-	v := &Value{}
-	var id ulid.ULID
-	if id, err = v.generatePayload(s); err != nil {
+	id := ulid.Make()
+	var v *Value
+	if v, err = MakeValue(id, s); err != nil {
 		return
 	}
 	if v.signature, err = c.signer.Sign(v.payload); err != nil {
