@@ -36,41 +36,41 @@ import (
 	"testing"
 )
 
-func TestPayloadEncode(t *testing.T) {
-	var p Payload
-	p.Username = "test"
-	p.Expires = 1000
+func TestSessionEncode(t *testing.T) {
+	var s Session
+	s.Username = "test"
+	s.Expires = 1000
 
 	expected := []byte("{\"u\":\"test\",\"e\":1000}")
-	encoded := p.Encode()
+	encoded := s.Encode()
 	if bytes.Compare(expected, encoded) != 0 {
-		t.Fatalf("encoding cookie payload failed, expected: '%s', got '%s'", expected, encoded)
+		t.Fatalf("encoding cookie session failed, expected: '%s', got '%s'", expected, encoded)
 	}
 }
 
-func TestPayloadDecode(t *testing.T) {
+func TestSessionDecode(t *testing.T) {
 	encoded := []byte("{\"u\":\"test\",\"e\":1000}")
-	var expected Payload
+	var expected Session
 	expected.Username = "test"
 	expected.Expires = 1000
 
-	var decoded Payload
+	var decoded Session
 	err := decoded.Decode(encoded)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	if !reflect.DeepEqual(decoded, expected) {
-		t.Fatalf("decoding cookie payload failed, expected: '%+v', got '%+v'", expected, decoded)
+		t.Fatalf("decoding cookie session failed, expected: '%+v', got '%+v'", expected, decoded)
 	}
 }
 
 func TestValueToString(t *testing.T) {
-	var p Payload
-	p.Username = "test"
-	p.Expires = 1000
+	var s Session
+	s.Username = "test"
+	s.Expires = 1000
 
 	var v Value
-	v.payload = p.Encode()
+	v.payload = s.Encode()
 	v.signature = []byte("this-is-not-a-signature")
 
 	encoded := v.String()
@@ -117,7 +117,7 @@ func TestValueFromString(t *testing.T) {
 
 	encoded := "eyJ1IjoidGVzdCIsImUiOjEwMDB9.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
 	expectedSignature := []byte("this-is-not-a-signature")
-	expectedPayload := Payload{Username: "test", Expires: 1000}
+	expectedSession := Session{Username: "test", Expires: 1000}
 
 	var v Value
 	err := v.FromString(encoded)
@@ -125,14 +125,14 @@ func TestValueFromString(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 	if bytes.Compare(v.signature, expectedSignature) != 0 {
-		t.Fatalf("encoding cookie payload failed, expected: '%s', got '%s'", expectedSignature, v.signature)
+		t.Fatalf("encoding cookie session failed, expected: '%s', got '%s'", expectedSignature, v.signature)
 	}
-	var p Payload
-	err = p.Decode(v.payload)
+	var s Session
+	err = s.Decode(v.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if !reflect.DeepEqual(p, expectedPayload) {
-		t.Fatalf("decoding cookie payload failed, expected: '%+v', got '%+v'", expectedPayload, p)
+	if !reflect.DeepEqual(s, expectedSession) {
+		t.Fatalf("decoding cookie session failed, expected: '%+v', got '%+v'", expectedSession, s)
 	}
 }

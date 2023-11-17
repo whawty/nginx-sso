@@ -131,8 +131,8 @@ func TestMint(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	testPayload := Payload{Username: "test-user"}
-	_, _, err = ctrl.Mint(testPayload)
+	testSession := Session{Username: "test-user"}
+	_, _, err = ctrl.Mint(testSession)
 	if err == nil {
 		t.Fatal("calling Mint() on verify-only controller must return an error")
 	}
@@ -144,7 +144,7 @@ func TestMint(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	value, opts, err := ctrl.Mint(testPayload)
+	value, opts, err := ctrl.Mint(testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -165,15 +165,15 @@ func TestMint(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	var p Payload
-	err = p.Decode(v.payload)
+	var s Session
+	err = s.Decode(v.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if p.Username != testPayload.Username {
-		t.Fatalf("the username is wrong, expected: %s, got %s", testPayload.Username, p.Username)
+	if s.Username != testSession.Username {
+		t.Fatalf("the username is wrong, expected: %s, got %s", testSession.Username, s.Username)
 	}
-	expire := time.Unix(p.Expires, 0).Sub(time.Now())
+	expire := time.Unix(s.Expires, 0).Sub(time.Now())
 	expiresDiff := DefaultExpire - expire
 	if expiresDiff < 0 || expiresDiff > 5*time.Second {
 		t.Fatalf("expires: expected %v, got %v (diff: %v)", DefaultExpire, expire, expiresDiff)
@@ -195,8 +195,8 @@ func TestVerify(t *testing.T) {
 		t.Fatal("verifing invalid cookie value should fail")
 	}
 
-	testPayload := Payload{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
-	testValue := &Value{payload: testPayload.Encode()}
+	testSession := Session{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
+	testValue := &Value{payload: testSession.Encode()}
 
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -223,7 +223,7 @@ func TestVerify(t *testing.T) {
 		t.Fatal("extracting an ivalid payload should fail")
 	}
 
-	testValue.payload = (&Payload{Username: "test-user", Expires: time.Now().Unix()}).Encode()
+	testValue.payload = (&Session{Username: "test-user", Expires: time.Now().Unix()}).Encode()
 	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -233,18 +233,18 @@ func TestVerify(t *testing.T) {
 		t.Fatal("expired cookie should not successfully verify")
 	}
 
-	testValue.payload = testPayload.Encode()
+	testValue.payload = testSession.Encode()
 	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	p, err := ctrl.Verify(testValue.String())
+	s, err := ctrl.Verify(testValue.String())
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if p.Username != testPayload.Username {
-		t.Fatalf("the username is wrong, expected: %s, got %s", testPayload.Username, p.Username)
+	if s.Username != testSession.Username {
+		t.Fatalf("the username is wrong, expected: %s, got %s", testSession.Username, s.Username)
 	}
 }
 
@@ -260,8 +260,8 @@ func TestMintThenVerifyMultipleKeys(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	testPayload := Payload{Username: "test-user"}
-	value, _, err := ctrl.Mint(testPayload)
+	testSession := Session{Username: "test-user"}
+	value, _, err := ctrl.Mint(testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -278,8 +278,8 @@ func TestMintThenVerifyMultipleKeys(t *testing.T) {
 	testSignerName := "secondary"
 	testSigner := &Ed25519SignerVerifier{context: conf.Name + "_" + testSignerName, priv: priv, pub: pub}
 
-	testPayload.Expires = time.Now().Add(time.Hour).Unix()
-	testValue := &Value{payload: testPayload.Encode()}
+	testSession.Expires = time.Now().Add(time.Hour).Unix()
+	testValue := &Value{payload: testSession.Encode()}
 	testValue.signature, err = testSigner.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)

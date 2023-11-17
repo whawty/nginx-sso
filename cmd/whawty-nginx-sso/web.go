@@ -52,7 +52,7 @@ type HandlerContext struct {
 	auth    auth.Backend
 }
 
-func (h *HandlerContext) verifyCookie(c *gin.Context) (*cookie.Payload, error) {
+func (h *HandlerContext) verifyCookie(c *gin.Context) (*cookie.Session, error) {
 	cookie, err := c.Cookie(h.cookies.Options().Name)
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 		return
 	}
 
-	value, opts, err := h.cookies.Mint(cookie.Payload{Username: username})
+	value, opts, err := h.cookies.Mint(cookie.Session{Username: username})
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
 			"login":    login,

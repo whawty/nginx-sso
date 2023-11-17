@@ -37,18 +37,18 @@ import (
 	"strings"
 )
 
-type Payload struct {
+type Session struct {
 	Username string `json:"u"`
 	Expires  int64  `json:"e"`
 }
 
-func (p *Payload) Encode() []byte {
-	payload, _ := json.Marshal(p)
-	return payload
+func (s *Session) Encode() []byte {
+	session, _ := json.Marshal(s)
+	return session
 }
 
-func (p *Payload) Decode(payload []byte) error {
-	return json.Unmarshal(payload, &p)
+func (s *Session) Decode(session []byte) error {
+	return json.Unmarshal(session, &s)
 }
 
 type Value struct {

@@ -142,14 +142,14 @@ func (c *Controller) Options() (opts Options) {
 	return
 }
 
-func (c *Controller) Mint(p Payload) (value string, opts Options, err error) {
+func (c *Controller) Mint(s Session) (value string, opts Options, err error) {
 	if c.signer == nil {
 		err = fmt.Errorf("no signing key loaded")
 		return
 	}
 
-	p.Expires = time.Now().Add(c.conf.Expire).Unix()
-	v := &Value{payload: p.Encode()}
+	s.Expires = time.Now().Add(c.conf.Expire).Unix()
+	v := &Value{payload: s.Encode()}
 	if v.signature, err = c.signer.Sign(v.payload); err != nil {
 		return
 	}
@@ -159,7 +159,7 @@ func (c *Controller) Mint(p Payload) (value string, opts Options, err error) {
 	return
 }
 
-func (c *Controller) Verify(value string) (p Payload, err error) {
+func (c *Controller) Verify(value string) (s Session, err error) {
 	var v Value
 	if err = v.FromString(value); err != nil {
 		return
@@ -175,11 +175,11 @@ func (c *Controller) Verify(value string) (p Payload, err error) {
 		return
 	}
 
-	if err = p.Decode(v.payload); err != nil {
+	if err = s.Decode(v.payload); err != nil {
 		err = fmt.Errorf("unable to decode cookie: %v", err)
 		return
 	}
-	if time.Unix(p.Expires, 0).Before(time.Now()) {
+	if time.Unix(s.Expires, 0).Before(time.Now()) {
 		err = fmt.Errorf("cookie is expired")
 		return
 	}
