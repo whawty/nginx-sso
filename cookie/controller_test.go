@@ -121,7 +121,7 @@ func TestMultipleKeys(t *testing.T) {
 	}
 }
 
-func TestMint(t *testing.T) {
+func TestNew(t *testing.T) {
 	conf := &Config{}
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "verify-only", Ed25519: &Ed25519Config{PubKey: &testPubKeyEd25519Pem}},
@@ -132,9 +132,9 @@ func TestMint(t *testing.T) {
 	}
 
 	testSession := Session{Username: "test-user"}
-	_, _, err = ctrl.Mint(testSession)
+	_, _, err = ctrl.New(testSession)
 	if err == nil {
-		t.Fatal("calling Mint() on verify-only controller must return an error")
+		t.Fatal("calling New() on verify-only controller must return an error")
 	}
 
 	conf.Keys = []SignerVerifierConfig{
@@ -144,12 +144,12 @@ func TestMint(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	value, opts, err := ctrl.Mint(testSession)
+	value, opts, err := ctrl.New(testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	if opts.Name != DefaultCookieName {
-		t.Fatal("Mint() returns wrong cookie name")
+		t.Fatal("New() returns wrong cookie name")
 	}
 
 	var v Value
@@ -158,15 +158,14 @@ func TestMint(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 	if len(v.payload) == 0 || len(v.signature) == 0 {
-		t.Fatal("Mint() returned invalid value")
+		t.Fatal("New() returned invalid value")
 	}
 	err = ctrl.signer.Verify(v.payload, v.signature)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	var s Session
-	err = s.Decode(v.payload)
+	s, err := v.Session()
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -196,7 +195,10 @@ func TestVerify(t *testing.T) {
 	}
 
 	testSession := Session{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
-	testValue := &Value{payload: testSession.Encode()}
+	testValue := &Value{}
+	if _, err = testValue.generatePayload(testSession); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -223,7 +225,9 @@ func TestVerify(t *testing.T) {
 		t.Fatal("extracting an ivalid payload should fail")
 	}
 
-	testValue.payload = (&Session{Username: "test-user", Expires: time.Now().Unix()}).Encode()
+	if _, err := testValue.generatePayload(Session{Username: "test-user", Expires: time.Now().Unix()}); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -233,7 +237,9 @@ func TestVerify(t *testing.T) {
 		t.Fatal("expired cookie should not successfully verify")
 	}
 
-	testValue.payload = testSession.Encode()
+	if _, err = testValue.generatePayload(testSession); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -248,7 +254,7 @@ func TestVerify(t *testing.T) {
 	}
 }
 
-func TestMintThenVerifyMultipleKeys(t *testing.T) {
+func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	conf := &Config{}
 	conf.Name = "some-prefix"
 	conf.Expire = time.Hour
@@ -261,7 +267,7 @@ func TestMintThenVerifyMultipleKeys(t *testing.T) {
 	}
 
 	testSession := Session{Username: "test-user"}
-	value, _, err := ctrl.Mint(testSession)
+	value, _, err := ctrl.New(testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -279,7 +285,10 @@ func TestMintThenVerifyMultipleKeys(t *testing.T) {
 	testSigner := &Ed25519SignerVerifier{context: conf.Name + "_" + testSignerName, priv: priv, pub: pub}
 
 	testSession.Expires = time.Now().Add(time.Hour).Unix()
-	testValue := &Value{payload: testSession.Encode()}
+	testValue := &Value{}
+	if _, err = testValue.generatePayload(testSession); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 	testValue.signature, err = testSigner.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)

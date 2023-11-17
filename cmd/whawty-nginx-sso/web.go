@@ -137,7 +137,7 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 		return
 	}
 
-	value, opts, err := h.cookies.Mint(cookie.Session{Username: username})
+	value, opts, err := h.cookies.New(cookie.Session{Username: username})
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
 			"login":    login,

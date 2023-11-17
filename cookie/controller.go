@@ -35,6 +35,8 @@ import (
 	"io"
 	"log"
 	"time"
+
+	"github.com/oklog/ulid/v2"
 )
 
 const (
@@ -142,17 +144,24 @@ func (c *Controller) Options() (opts Options) {
 	return
 }
 
-func (c *Controller) Mint(s Session) (value string, opts Options, err error) {
+func (c *Controller) New(s Session) (value string, opts Options, err error) {
 	if c.signer == nil {
 		err = fmt.Errorf("no signing key loaded")
 		return
 	}
 
 	s.Expires = time.Now().Add(c.conf.Expire).Unix()
-	v := &Value{payload: s.Encode()}
+	v := &Value{}
+	var id ulid.ULID
+	if id, err = v.generatePayload(s); err != nil {
+		return
+	}
 	if v.signature, err = c.signer.Sign(v.payload); err != nil {
 		return
 	}
+
+	// TODO: store session
+	c.dbgLog.Printf("successfully generated new session('%v'): %+v", id, s)
 
 	opts.fromConfig(c.conf)
 	value = v.String()
@@ -175,7 +184,15 @@ func (c *Controller) Verify(value string) (s Session, err error) {
 		return
 	}
 
-	if err = s.Decode(v.payload); err != nil {
+	var id ulid.ULID
+	if id, err = v.ID(); err != nil {
+		err = fmt.Errorf("unable to decode cookie: %v", err)
+		return
+	}
+
+	// TODO: check if id is revoked
+
+	if s, err = v.Session(); err != nil {
 		err = fmt.Errorf("unable to decode cookie: %v", err)
 		return
 	}
@@ -183,5 +200,7 @@ func (c *Controller) Verify(value string) (s Session, err error) {
 		err = fmt.Errorf("cookie is expired")
 		return
 	}
+
+	c.dbgLog.Printf("successfully verified session('%v'): %+v", id, s)
 	return
 }

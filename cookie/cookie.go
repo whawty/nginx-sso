@@ -31,10 +31,18 @@
 package cookie
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
+
+	"github.com/oklog/ulid/v2"
+)
+
+const (
+	ulidLength = len(ulid.ULID{})
 )
 
 type Session struct {
@@ -42,13 +50,12 @@ type Session struct {
 	Expires  int64  `json:"e"`
 }
 
-func (s *Session) Encode() []byte {
-	session, _ := json.Marshal(s)
-	return session
+func (s *Session) Encode(w io.Writer) error {
+	return json.NewEncoder(w).Encode(s)
 }
 
-func (s *Session) Decode(session []byte) error {
-	return json.Unmarshal(session, &s)
+func (s *Session) Decode(r io.Reader) error {
+	return json.NewDecoder(r).Decode(s)
 }
 
 type Value struct {
@@ -76,5 +83,33 @@ func (v *Value) FromString(encoded string) (err error) {
 	if err != nil {
 		return fmt.Errorf("invalid cookie value: %v", err)
 	}
+	return
+}
+
+func (v *Value) generatePayload(s Session) (id ulid.ULID, err error) {
+	payload := make([]byte, ulidLength, 128) // TODO: hardcoded capacity?
+
+	id = ulid.Make()
+	if err = id.MarshalBinaryTo(payload); err != nil {
+		return
+	}
+
+	b := bytes.NewBuffer(payload)
+	if err = s.Encode(b); err != nil {
+		return
+	}
+
+	v.payload = b.Bytes()
+	return
+}
+
+func (v *Value) Session() (s Session, err error) {
+	b := bytes.NewReader(v.payload[ulidLength:])
+	err = s.Decode(b)
+	return
+}
+
+func (v *Value) ID() (id ulid.ULID, err error) {
+	err = id.UnmarshalBinary(v.payload[:ulidLength])
 	return
 }

@@ -41,8 +41,12 @@ func TestSessionEncode(t *testing.T) {
 	s.Username = "test"
 	s.Expires = 1000
 
-	expected := []byte("{\"u\":\"test\",\"e\":1000}")
-	encoded := s.Encode()
+	expected := []byte("{\"u\":\"test\",\"e\":1000}\n") // TODO: json.Encoder always adds a new-line....
+	b := &bytes.Buffer{}
+	if err := s.Encode(b); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	encoded := b.Bytes()
 	if bytes.Compare(expected, encoded) != 0 {
 		t.Fatalf("encoding cookie session failed, expected: '%s', got '%s'", expected, encoded)
 	}
@@ -55,7 +59,7 @@ func TestSessionDecode(t *testing.T) {
 	expected.Expires = 1000
 
 	var decoded Session
-	err := decoded.Decode(encoded)
+	err := decoded.Decode(bytes.NewReader(encoded))
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -65,12 +69,8 @@ func TestSessionDecode(t *testing.T) {
 }
 
 func TestValueToString(t *testing.T) {
-	var s Session
-	s.Username = "test"
-	s.Expires = 1000
-
 	var v Value
-	v.payload = s.Encode()
+	v.payload = []byte("{\"u\":\"test\",\"e\":1000}")
 	v.signature = []byte("this-is-not-a-signature")
 
 	encoded := v.String()
@@ -128,7 +128,7 @@ func TestValueFromString(t *testing.T) {
 		t.Fatalf("encoding cookie session failed, expected: '%s', got '%s'", expectedSignature, v.signature)
 	}
 	var s Session
-	err = s.Decode(v.payload)
+	err = s.Decode(bytes.NewReader(v.payload))
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
