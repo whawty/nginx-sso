@@ -51,7 +51,8 @@ type SignerVerifierConfig struct {
 }
 
 type StoreBackendConfig struct {
-	InMemory *InMemoryBackendConfig `yaml:"in-memory"`
+	GCInterval time.Duration          `yaml:"gc-interval"`
+	InMemory   *InMemoryBackendConfig `yaml:"in-memory"`
 }
 
 type Config struct {
@@ -96,7 +97,7 @@ type StoreBackend interface {
 	Revoke(username string, id ulid.ULID) error
 	IsRevoked(id ulid.ULID) (bool, error)
 	ListRevoked() (StoredSessionList, error)
-	CollectGarbage() error
+	CollectGarbage() (uint, error)
 }
 
 type Options struct {
@@ -180,13 +181,42 @@ func (st *Store) initKeys(conf *Config) (err error) {
 	return
 }
 
+func (st *Store) runGC(interval time.Duration) {
+	t := time.NewTicker(interval)
+	st.dbgLog.Printf("cookie-store: running GC every %v", interval)
+	for {
+		if _, ok := <-t.C; !ok {
+			return
+		}
+		cnt, err := st.backend.CollectGarbage()
+		if err != nil {
+			st.infoLog.Printf("cookie-store: failed to collect garbage: %v", err)
+		}
+		if cnt > 0 {
+			st.dbgLog.Printf("cookie-store: GC removed %d expired sessions", cnt)
+		}
+	}
+}
+
 func (st *Store) initBackend(conf *Config) (err error) {
+	if conf.Backend.GCInterval <= time.Second {
+		st.infoLog.Printf("cookie-store: overriding invalid/unset GC interval to 5 minutes")
+		conf.Backend.GCInterval = 5 * time.Minute
+	}
+
 	if conf.Backend.InMemory != nil {
 		st.backend, err = NewInMemoryBackend(conf.Backend.InMemory)
+		if err != nil {
+			return err
+		}
+	}
+	// TODO: add other backend types
+	if st.backend == nil {
+		err = fmt.Errorf("no valid backend configuration found")
 		return
 	}
-	// TODO: add garbage collector!!
-	err = fmt.Errorf("no valid backend configuration found")
+
+	go st.runGC(conf.Backend.GCInterval)
 	return
 }
 
