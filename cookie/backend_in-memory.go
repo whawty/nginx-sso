@@ -122,8 +122,8 @@ func (b *InMemoryBackend) ListRevoked() (list StoredSessionList, err error) {
 }
 
 func (b *InMemoryBackend) CollectGarbage() (uint, error) {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	cnt := uint(0)
 	for _, sessions := range b.sessions {
