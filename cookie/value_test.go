@@ -38,13 +38,28 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-// TODO: add tests for: MakeValue()
+func TestMakeValue(t *testing.T) {
+	testID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
+	testSession := Session{Username: "test", Expires: 1000}
+	testSessionEncoded := []byte("{\"u\":\"test\",\"e\":1000}")
+	expectedPayload := append(testID.Bytes(), testSessionEncoded...)
+
+	v, err := MakeValue(testID, testSession)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if bytes.Compare(v.payload, expectedPayload) != 0 {
+		t.Fatalf("encoding cookie payload failed, expected: '%s', got '%s'", expectedPayload, v.payload)
+	}
+}
 
 func TestValueToString(t *testing.T) {
-	var v Value
-	id := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
-	s := []byte("{\"u\":\"test\",\"e\":1000}")
-	v.payload = append(id.Bytes(), s...)
+	testID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
+	testSession := Session{Username: "test", Expires: 1000}
+	v, err := MakeValue(testID, testSession)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 	v.signature = []byte("this-is-not-a-signature")
 
 	encoded := v.String()
@@ -93,7 +108,7 @@ func TestValueFromString(t *testing.T) {
 	encoded := "ABEiM0RVZneImaq7zN3u_3sidSI6InRlc3QiLCJlIjoxMDAwfQ.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
 	expectedSignature := []byte("this-is-not-a-signature")
 	expectedSession := Session{Username: "test", Expires: 1000}
-	expectedId := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
+	expectedID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
 
 	var v Value
 	err := v.FromString(encoded)
@@ -116,7 +131,7 @@ func TestValueFromString(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if id.Compare(expectedId) != 0 {
-		t.Fatalf("decoding cookie id failed, expected: '%v', got '%v'", expectedId, id)
+	if id.Compare(expectedID) != 0 {
+		t.Fatalf("decoding cookie id failed, expected: '%v', got '%v'", expectedID, id)
 	}
 }
