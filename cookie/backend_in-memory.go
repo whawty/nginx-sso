@@ -81,7 +81,9 @@ func (b *InMemoryBackend) ListUser(username string) (list StoredSessionList, err
 		return
 	}
 	for id, session := range sessions {
-		list = append(list, StoredSession{ID: id, Session: session})
+		if _, exists = b.revoked[id]; !exists {
+			list = append(list, StoredSession{ID: id, Session: session})
+		}
 	}
 	return
 }

@@ -47,7 +47,7 @@ import (
 )
 
 type WebError struct {
-	Error error `json:"error"`
+	Error string `json:"error"`
 }
 
 type HandlerContext struct {
@@ -169,6 +169,7 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 		if err = h.cookies.Revoke(id); err != nil {
 			// TODO: render error page!
 			c.AbortWithError(http.StatusInternalServerError, err)
+			return
 		}
 	}
 	opts := h.cookies.Options()
@@ -183,11 +184,13 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 func (h *HandlerContext) handleSessions(c *gin.Context) {
 	_, session, err := h.verifyCookie(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, WebError{err})
+		c.JSON(http.StatusUnauthorized, WebError{err.Error()})
+		return
 	}
 	sessions, err := h.cookies.ListUser(session.Username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, WebError{err})
+		c.JSON(http.StatusInternalServerError, WebError{err.Error()})
+		return
 	}
 	c.JSON(http.StatusOK, sessions)
 }
@@ -196,7 +199,8 @@ func (h *HandlerContext) handleRevocations(c *gin.Context) {
 	// TODO: add authentication based on bearer tokens!
 	revocations, err := h.cookies.ListRevoked()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, WebError{err})
+		c.JSON(http.StatusInternalServerError, WebError{err.Error()})
+		return
 	}
 	c.JSON(http.StatusOK, revocations)
 }

@@ -241,9 +241,11 @@ func (st *Store) Verify(value string) (id string, s Session, err error) {
 	var revoked bool
 	if revoked, err = st.backend.IsRevoked(_id); err != nil {
 		err = fmt.Errorf("failed to check for cookie revocation: %v", err)
+		return
 	}
 	if revoked {
 		err = fmt.Errorf("cookie is revoked")
+		return
 	}
 
 	if s, err = v.Session(); err != nil {
