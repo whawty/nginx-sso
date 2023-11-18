@@ -31,6 +31,8 @@ cookie:
   #   ed25519:
   #     ## generate with `openssl pkey -in ./contrib/bar_ed25519_priv.pem -pubout -out ./contrib/bar_ed25519_pub.pem`
   #     public-key-file: ./contrib/bar_ed25519_pub.pem
+  backend:
+    memory: {}
 
 auth:
   static:

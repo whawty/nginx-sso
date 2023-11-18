@@ -45,6 +45,7 @@ func TestNewStore(t *testing.T) {
 		t.Fatal("initializing store from empty config should fail")
 	}
 
+	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}} // TODO: test New with empty backend config
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "empty"},
 	}
@@ -105,6 +106,7 @@ func TestMultipleKeys(t *testing.T) {
 		SignerVerifierConfig{Name: "verify-only", Ed25519: ed25519ConfVerifyOnly},
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: ed25519ConfSignAndVerify},
 	}
+	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}}
 	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -128,6 +130,7 @@ func TestNew(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "verify-only", Ed25519: &Ed25519Config{PubKey: &testPubKeyEd25519Pem}},
 	}
+	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}}
 	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -186,6 +189,7 @@ func TestVerify(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
 	}
+	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}}
 	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -263,6 +267,7 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
 	}
+	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}}
 	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)

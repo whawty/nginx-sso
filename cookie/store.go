@@ -31,6 +31,7 @@
 package cookie
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -49,12 +50,17 @@ type SignerVerifierConfig struct {
 	Ed25519 *Ed25519Config `yaml:"ed25519"`
 }
 
+type StoreBackendConfig struct {
+	Memory *MemoryBackendConfig `yaml:"memory"`
+}
+
 type Config struct {
-	Name   string                 `yaml:"name"`
-	Domain string                 `yaml:"domain"`
-	Secure bool                   `yaml:"secure"`
-	Expire time.Duration          `yaml:"expire"`
-	Keys   []SignerVerifierConfig `yaml:"keys"`
+	Name    string                 `yaml:"name"`
+	Domain  string                 `yaml:"domain"`
+	Secure  bool                   `yaml:"secure"`
+	Expire  time.Duration          `yaml:"expire"`
+	Keys    []SignerVerifierConfig `yaml:"keys"`
+	Backend StoreBackendConfig     `yaml:"backend"`
 }
 
 type SignerVerifier interface {
@@ -62,6 +68,29 @@ type SignerVerifier interface {
 	CanSign() bool
 	Sign(payload []byte) ([]byte, error)
 	Verify(payload, signature []byte) error
+}
+
+type StoredSession struct {
+	ID      ulid.ULID `json:"id"`
+	Session Session   `josn:"session"`
+}
+
+type StoredSessionList []StoredSession
+
+type RevocationList []ulid.ULID
+
+type SignedRevocationList struct {
+	Revoked   json.RawMessage `json:"revoked"`
+	Signature []byte          `json:"signature"`
+}
+
+type StoreBackend interface {
+	Save(username string, id ulid.ULID, session Session) error
+	ListUser(username string) (StoredSessionList, error)
+	Revoke(id ulid.ULID) error
+	IsRevoked(id ulid.ULID) (bool, error)
+	ListRevoked() (RevocationList, error)
+	CollectGarbage() error
 }
 
 type Options struct {
@@ -82,6 +111,7 @@ type Store struct {
 	conf    *Config
 	keys    []SignerVerifier
 	signer  SignerVerifier
+	backend StoreBackend
 	infoLog *log.Logger
 	dbgLog  *log.Logger
 }
@@ -103,6 +133,11 @@ func NewStore(conf *Config, infoLog, dbgLog *log.Logger) (*Store, error) {
 
 	ctrl := &Store{conf: conf, infoLog: infoLog, dbgLog: dbgLog}
 	if err := ctrl.initKeys(conf); err != nil {
+		ctrl.infoLog.Printf("cookie-store: failed to initialize keys: %v", err)
+		return nil, err
+	}
+	if err := ctrl.initBackend(conf); err != nil {
+		ctrl.infoLog.Printf("cookie-store: failed to initialize backend: %v", err)
 		return nil, err
 	}
 	ctrl.infoLog.Printf("cookie-store: successfully initialized (%d keys loaded)", len(ctrl.keys))
@@ -139,6 +174,15 @@ func (c *Store) initKeys(conf *Config) (err error) {
 	return
 }
 
+func (c *Store) initBackend(conf *Config) (err error) {
+	if conf.Backend.Memory != nil {
+		c.backend, err = NewMemoryBackend(conf.Backend.Memory)
+		return
+	}
+	err = fmt.Errorf("no valid backend configuration found")
+	return
+}
+
 func (c *Store) Options() (opts Options) {
 	opts.fromConfig(c.conf)
 	return
@@ -150,7 +194,7 @@ func (c *Store) New(s Session) (value string, opts Options, err error) {
 		return
 	}
 
-	s.Expires = time.Now().Add(c.conf.Expire).Unix()
+	s.SetExpiry(c.conf.Expire)
 	id := ulid.Make()
 	var v *Value
 	if v, err = MakeValue(id, s); err != nil {
@@ -196,7 +240,7 @@ func (c *Store) Verify(value string) (s Session, err error) {
 		err = fmt.Errorf("unable to decode cookie: %v", err)
 		return
 	}
-	if time.Unix(s.Expires, 0).Before(time.Now()) {
+	if s.IsExpired() {
 		err = fmt.Errorf("cookie is expired")
 		return
 	}

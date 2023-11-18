@@ -36,6 +36,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -47,6 +48,14 @@ const (
 type Session struct {
 	Username string `json:"u"`
 	Expires  int64  `json:"e"`
+}
+
+func (s *Session) SetExpiry(lifetime time.Duration) {
+	s.Expires = time.Now().Add(lifetime).Unix()
+}
+
+func (s *Session) IsExpired() bool {
+	return time.Unix(s.Expires, 0).Before(time.Now())
 }
 
 type Value struct {
