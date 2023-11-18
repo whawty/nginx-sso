@@ -37,31 +37,31 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-type MemoryBackendConfig struct {
+type InMemoryBackendConfig struct {
 }
 
-type MemorySessionList map[ulid.ULID]Session
+type InMemorySessionList map[ulid.ULID]Session
 
-type MemoryBackend struct {
+type InMemoryBackend struct {
 	mutex    sync.RWMutex
-	sessions map[string]MemorySessionList
+	sessions map[string]InMemorySessionList
 	revoked  map[ulid.ULID]bool
 }
 
-func NewMemoryBackend(conf *MemoryBackendConfig) (*MemoryBackend, error) {
-	m := &MemoryBackend{}
-	m.sessions = make(map[string]MemorySessionList)
+func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
+	m := &InMemoryBackend{}
+	m.sessions = make(map[string]InMemorySessionList)
 	m.revoked = make(map[ulid.ULID]bool)
 	return m, nil
 }
 
-func (b *MemoryBackend) Save(username string, id ulid.ULID, session Session) error {
+func (b *InMemoryBackend) Save(username string, id ulid.ULID, session Session) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
 	sessions, exists := b.sessions[username]
 	if !exists {
-		sessions = make(MemorySessionList)
+		sessions = make(InMemorySessionList)
 		b.sessions[username] = sessions
 	}
 	if _, exists = sessions[id]; exists {
@@ -72,7 +72,7 @@ func (b *MemoryBackend) Save(username string, id ulid.ULID, session Session) err
 	return nil
 }
 
-func (b *MemoryBackend) ListUser(username string) (list StoredSessionList, err error) {
+func (b *InMemoryBackend) ListUser(username string) (list StoredSessionList, err error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
@@ -86,7 +86,7 @@ func (b *MemoryBackend) ListUser(username string) (list StoredSessionList, err e
 	return
 }
 
-func (b *MemoryBackend) Revoke(id ulid.ULID) error {
+func (b *InMemoryBackend) Revoke(id ulid.ULID) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -94,7 +94,7 @@ func (b *MemoryBackend) Revoke(id ulid.ULID) error {
 	return nil
 }
 
-func (b *MemoryBackend) IsRevoked(id ulid.ULID) (bool, error) {
+func (b *InMemoryBackend) IsRevoked(id ulid.ULID) (bool, error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
@@ -102,7 +102,7 @@ func (b *MemoryBackend) IsRevoked(id ulid.ULID) (bool, error) {
 	return exists, nil
 }
 
-func (b *MemoryBackend) ListRevoked() (list RevocationList, err error) {
+func (b *InMemoryBackend) ListRevoked() (list RevocationList, err error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
@@ -112,7 +112,7 @@ func (b *MemoryBackend) ListRevoked() (list RevocationList, err error) {
 	return
 }
 
-func (b *MemoryBackend) CollectGarbage() error {
+func (b *InMemoryBackend) CollectGarbage() error {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 

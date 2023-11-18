@@ -46,25 +46,29 @@ import (
 	"gitlab.com/go-box/pongo2gin/v6"
 )
 
+type WebError struct {
+	Error error `json:"error"`
+}
+
 type HandlerContext struct {
 	conf    *WebConfig
 	cookies *cookie.Store
 	auth    auth.Backend
 }
 
-func (h *HandlerContext) verifyCookie(c *gin.Context) (*cookie.Session, error) {
+func (h *HandlerContext) verifyCookie(c *gin.Context) (string, *cookie.Session, error) {
 	cookie, err := c.Cookie(h.cookies.Options().Name)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	if cookie == "" {
-		return nil, errors.New("no cookie found")
+		return "", nil, errors.New("no cookie found")
 	}
-	session, err := h.cookies.Verify(cookie)
+	id, session, err := h.cookies.Verify(cookie)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	return &session, nil
+	return id, &session, nil
 }
 
 func (h *HandlerContext) getBasePath(c *gin.Context) string {
@@ -79,7 +83,7 @@ func (h *HandlerContext) getBasePath(c *gin.Context) string {
 }
 
 func (h *HandlerContext) handleAuth(c *gin.Context) {
-	session, err := h.verifyCookie(c)
+	_, session, err := h.verifyCookie(c)
 	if err != nil {
 		c.Data(http.StatusUnauthorized, "text/plain", []byte(err.Error()))
 		return
@@ -92,8 +96,8 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 	login := h.conf.Login
 	login.BasePath = h.getBasePath(c)
 
-	session, err := h.verifyCookie(c)
-	if err == nil && session != nil {
+	_, session, err := h.verifyCookie(c)
+	if err == nil {
 		// TODO: follow redir?
 		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
 			"login":    login,
@@ -160,6 +164,13 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleLogout(c *gin.Context) {
+	id, _, err := h.verifyCookie(c)
+	if err == nil {
+		if err = h.cookies.Revoke(id); err != nil {
+			// TODO: render error page!
+			c.AbortWithError(http.StatusInternalServerError, err)
+		}
+	}
 	opts := h.cookies.Options()
 	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
 	redirect, _ := c.GetQuery("redir")
@@ -167,6 +178,27 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 		redirect = path.Join(h.getBasePath(c), "login")
 	}
 	c.Redirect(http.StatusSeeOther, redirect)
+}
+
+func (h *HandlerContext) handleSessions(c *gin.Context) {
+	_, session, err := h.verifyCookie(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, WebError{err})
+	}
+	sessions, err := h.cookies.ListUser(session.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, WebError{err})
+	}
+	c.JSON(http.StatusOK, sessions)
+}
+
+func (h *HandlerContext) handleRevocations(c *gin.Context) {
+	// TODO: add authentication based on bearer tokens!
+	revocations, err := h.cookies.ListRevoked()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, WebError{err})
+	}
+	c.JSON(http.StatusOK, revocations)
 }
 
 func runWeb(config *WebConfig, cookies *cookie.Store, auth auth.Backend) (err error) {
@@ -203,6 +235,8 @@ func runWeb(config *WebConfig, cookies *cookie.Store, auth auth.Backend) (err er
 	r.GET("/login", h.handleLoginGet)
 	r.POST("/login", h.handleLoginPost)
 	r.GET("/logout", h.handleLogout)
+	r.GET("/sessions", h.handleSessions)
+	r.GET("/revocations", h.handleRevocations)
 
 	listener, err := net.Listen("tcp", config.Listen)
 	if err != nil {

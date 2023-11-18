@@ -51,7 +51,7 @@ type SignerVerifierConfig struct {
 }
 
 type StoreBackendConfig struct {
-	Memory *MemoryBackendConfig `yaml:"memory"`
+	InMemory *InMemoryBackendConfig `yaml:"in-memory"`
 }
 
 type Config struct {
@@ -131,23 +131,23 @@ func NewStore(conf *Config, infoLog, dbgLog *log.Logger) (*Store, error) {
 		conf.Expire = DefaultExpire
 	}
 
-	ctrl := &Store{conf: conf, infoLog: infoLog, dbgLog: dbgLog}
-	if err := ctrl.initKeys(conf); err != nil {
-		ctrl.infoLog.Printf("cookie-store: failed to initialize keys: %v", err)
+	st := &Store{conf: conf, infoLog: infoLog, dbgLog: dbgLog}
+	if err := st.initKeys(conf); err != nil {
+		st.infoLog.Printf("cookie-store: failed to initialize keys: %v", err)
 		return nil, err
 	}
-	if err := ctrl.initBackend(conf); err != nil {
-		ctrl.infoLog.Printf("cookie-store: failed to initialize backend: %v", err)
+	if err := st.initBackend(conf); err != nil {
+		st.infoLog.Printf("cookie-store: failed to initialize backend: %v", err)
 		return nil, err
 	}
-	ctrl.infoLog.Printf("cookie-store: successfully initialized (%d keys loaded)", len(ctrl.keys))
-	if ctrl.signer == nil {
-		ctrl.infoLog.Printf("cookie-store: no signing key has been loaded - this instance can only verify cookies")
+	st.infoLog.Printf("cookie-store: successfully initialized (%d keys loaded)", len(st.keys))
+	if st.signer == nil {
+		st.infoLog.Printf("cookie-store: no signing key has been loaded - this instance can only verify cookies")
 	}
-	return ctrl, nil
+	return st, nil
 }
 
-func (c *Store) initKeys(conf *Config) (err error) {
+func (st *Store) initKeys(conf *Config) (err error) {
 	for _, key := range conf.Keys {
 		var s SignerVerifier
 		if key.Ed25519 != nil {
@@ -160,65 +160,68 @@ func (c *Store) initKeys(conf *Config) (err error) {
 			return fmt.Errorf("failed to load key '%s': no valid type-specific config found", key.Name)
 		}
 
-		c.keys = append(c.keys, s)
+		st.keys = append(st.keys, s)
 		mode := "(verify-only)"
-		if s.CanSign() && c.signer == nil {
-			c.signer = s
+		if s.CanSign() && st.signer == nil {
+			st.signer = s
 			mode = "(*sign* and verify)"
 		}
-		c.dbgLog.Printf("cookie-store: loaded %s key '%s' %s", s.Algo(), key.Name, mode)
+		st.dbgLog.Printf("cookie-store: loaded %s key '%s' %s", s.Algo(), key.Name, mode)
 	}
-	if len(c.keys) < 1 {
+	if len(st.keys) < 1 {
 		return fmt.Errorf("at least one key must be configured")
 	}
 	return
 }
 
-func (c *Store) initBackend(conf *Config) (err error) {
-	if conf.Backend.Memory != nil {
-		c.backend, err = NewMemoryBackend(conf.Backend.Memory)
+func (st *Store) initBackend(conf *Config) (err error) {
+	if conf.Backend.InMemory != nil {
+		st.backend, err = NewInMemoryBackend(conf.Backend.InMemory)
 		return
 	}
+	// TODO: add garbage collector!!
 	err = fmt.Errorf("no valid backend configuration found")
 	return
 }
 
-func (c *Store) Options() (opts Options) {
-	opts.fromConfig(c.conf)
+func (st *Store) Options() (opts Options) {
+	opts.fromConfig(st.conf)
 	return
 }
 
-func (c *Store) New(s Session) (value string, opts Options, err error) {
-	if c.signer == nil {
+func (st *Store) New(s Session) (value string, opts Options, err error) {
+	if st.signer == nil {
 		err = fmt.Errorf("no signing key loaded")
 		return
 	}
 
-	s.SetExpiry(c.conf.Expire)
+	s.SetExpiry(st.conf.Expire)
 	id := ulid.Make()
 	var v *Value
 	if v, err = MakeValue(id, s); err != nil {
 		return
 	}
-	if v.signature, err = c.signer.Sign(v.payload); err != nil {
+	if v.signature, err = st.signer.Sign(v.payload); err != nil {
 		return
 	}
 
-	// TODO: store session
-	c.dbgLog.Printf("successfully generated new session('%v'): %+v", id, s)
+	if err = st.backend.Save(s.Username, id, s); err != nil {
+		return
+	}
+	st.dbgLog.Printf("successfully generated new session('%v'): %+v", id, s)
 
-	opts.fromConfig(c.conf)
+	opts.fromConfig(st.conf)
 	value = v.String()
 	return
 }
 
-func (c *Store) Verify(value string) (s Session, err error) {
+func (st *Store) Verify(value string) (id string, s Session, err error) {
 	var v Value
 	if err = v.FromString(value); err != nil {
 		return
 	}
 
-	for _, key := range c.keys {
+	for _, key := range st.keys {
 		if err = key.Verify(v.payload, v.signature); err == nil {
 			break
 		}
@@ -228,13 +231,20 @@ func (c *Store) Verify(value string) (s Session, err error) {
 		return
 	}
 
-	var id ulid.ULID
-	if id, err = v.ID(); err != nil {
+	var _id ulid.ULID
+	if _id, err = v.ID(); err != nil {
 		err = fmt.Errorf("unable to decode cookie: %v", err)
 		return
 	}
+	id = _id.String()
 
-	// TODO: check if id is revoked
+	var revoked bool
+	if revoked, err = st.backend.IsRevoked(_id); err != nil {
+		err = fmt.Errorf("failed to check for cookie revocation: %v", err)
+	}
+	if revoked {
+		err = fmt.Errorf("cookie is revoked")
+	}
 
 	if s, err = v.Session(); err != nil {
 		err = fmt.Errorf("unable to decode cookie: %v", err)
@@ -245,6 +255,35 @@ func (c *Store) Verify(value string) (s Session, err error) {
 		return
 	}
 
-	c.dbgLog.Printf("successfully verified session('%v'): %+v", id, s)
+	st.dbgLog.Printf("successfully verified session('%v'): %+v", id, s)
+	return
+}
+
+func (st *Store) ListUser(username string) (StoredSessionList, error) {
+	return st.backend.ListUser(username)
+}
+
+func (st *Store) Revoke(id string) error {
+	toRevoke, err := ulid.ParseStrict(id)
+	if err != nil {
+		return err
+	}
+	return st.backend.Revoke(toRevoke)
+}
+
+func (st *Store) ListRevoked() (result SignedRevocationList, err error) {
+	var revoked RevocationList
+	if revoked, err = st.backend.ListRevoked(); err != nil {
+		return
+	}
+
+	if result.Revoked, err = json.Marshal(revoked); err != nil {
+		return
+	}
+	if st.signer != nil {
+		if result.Signature, err = st.signer.Sign(result.Revoked); err != nil {
+			return
+		}
+	}
 	return
 }

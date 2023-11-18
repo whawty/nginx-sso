@@ -45,7 +45,7 @@ func TestNewStore(t *testing.T) {
 		t.Fatal("initializing store from empty config should fail")
 	}
 
-	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}} // TODO: test New with empty backend config
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}} // TODO: test New with empty backend config
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "empty"},
 	}
@@ -68,18 +68,18 @@ func TestNewStore(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
-	ctrl, err := NewStore(conf, nil, nil)
+	st, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	if ctrl.conf.Name == "" {
+	if st.conf.Name == "" {
 		t.Fatal("initializing store default value for cookie name does not work")
 	}
-	if ctrl.conf.Expire != DefaultExpire {
+	if st.conf.Expire != DefaultExpire {
 		t.Fatal("initializing store default value for cookie expiry does not work")
 	}
-	if ctrl.signer != nil {
+	if st.signer != nil {
 		t.Fatal("initializing store with verify-only key must not have signer attribute")
 	}
 
@@ -87,11 +87,11 @@ func TestNewStore(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
-	ctrl, err = NewStore(conf, nil, nil)
+	st, err = NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if ctrl.signer == nil {
+	if st.signer == nil {
 		t.Fatal("initializing store with sign-and-verify key must have signer attribute")
 	}
 }
@@ -106,18 +106,18 @@ func TestMultipleKeys(t *testing.T) {
 		SignerVerifierConfig{Name: "verify-only", Ed25519: ed25519ConfVerifyOnly},
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: ed25519ConfSignAndVerify},
 	}
-	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}}
-	ctrl, err := NewStore(conf, nil, nil)
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
+	st, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	if ctrl.signer == nil {
+	if st.signer == nil {
 		t.Fatal("initializing store with at least one sign-and-verify key must have signer attribute")
 	}
-	ed25519Signer, ok := ctrl.signer.(*Ed25519SignerVerifier)
+	ed25519Signer, ok := st.signer.(*Ed25519SignerVerifier)
 	if !ok {
-		t.Fatalf("signer-verfier has wrong type: %T", ctrl.signer)
+		t.Fatalf("signer-verfier has wrong type: %T", st.signer)
 	}
 	expectedContext := cookieName + "_sign-and-verify"
 	if ed25519Signer.context != expectedContext {
@@ -130,14 +130,14 @@ func TestNew(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "verify-only", Ed25519: &Ed25519Config{PubKey: &testPubKeyEd25519Pem}},
 	}
-	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}}
-	ctrl, err := NewStore(conf, nil, nil)
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
+	st, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
 	testSession := Session{Username: "test-user"}
-	_, _, err = ctrl.New(testSession)
+	_, _, err = st.New(testSession)
 	if err == nil {
 		t.Fatal("calling New() on verify-only store must return an error")
 	}
@@ -145,11 +145,11 @@ func TestNew(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
 	}
-	ctrl, err = NewStore(conf, nil, nil)
+	st, err = NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	value, opts, err := ctrl.New(testSession)
+	value, opts, err := st.New(testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -165,7 +165,7 @@ func TestNew(t *testing.T) {
 	if len(v.payload) == 0 || len(v.signature) == 0 {
 		t.Fatal("New() returned invalid value")
 	}
-	err = ctrl.signer.Verify(v.payload, v.signature)
+	err = st.signer.Verify(v.payload, v.signature)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -189,13 +189,13 @@ func TestVerify(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
 	}
-	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}}
-	ctrl, err := NewStore(conf, nil, nil)
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
+	st, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	_, err = ctrl.Verify("")
+	_, _, err = st.Verify("")
 	if err == nil {
 		t.Fatal("verifing invalid cookie value should fail")
 	}
@@ -216,17 +216,17 @@ func TestVerify(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	_, err = ctrl.Verify(testValue.String())
+	_, _, err = st.Verify(testValue.String())
 	if err == nil {
 		t.Fatal("signature signed by unknown signer should not verify")
 	}
 
 	testValue.payload = []byte("this-is-not-a-valid-payload")
-	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
+	testValue.signature, err = st.signer.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	_, err = ctrl.Verify(testValue.String())
+	_, _, err = st.Verify(testValue.String())
 	if err == nil {
 		t.Fatal("extracting an ivalid payload should fail")
 	}
@@ -234,29 +234,33 @@ func TestVerify(t *testing.T) {
 	if testValue, err = MakeValue(ulid.Make(), Session{Username: "test-user", Expires: time.Now().Unix()}); err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
+	testValue.signature, err = st.signer.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	_, err = ctrl.Verify(testValue.String())
+	_, _, err = st.Verify(testValue.String())
 	if err == nil {
 		t.Fatal("expired cookie should not successfully verify")
 	}
 
-	if testValue, err = MakeValue(ulid.Make(), testSession); err != nil {
+	testID := ulid.Make()
+	if testValue, err = MakeValue(testID, testSession); err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	testValue.signature, err = ctrl.signer.Sign(testValue.payload)
+	testValue.signature, err = st.signer.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	s, err := ctrl.Verify(testValue.String())
+	id, s, err := st.Verify(testValue.String())
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	if s.Username != testSession.Username {
 		t.Fatalf("the username is wrong, expected: %s, got %s", testSession.Username, s.Username)
+	}
+	if testID.String() != id {
+		t.Fatalf("the id is wrong, expected: %s, got %s", testID.String(), id)
 	}
 }
 
@@ -267,19 +271,19 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
 	}
-	conf.Backend = StoreBackendConfig{Memory: &MemoryBackendConfig{}}
-	ctrl, err := NewStore(conf, nil, nil)
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
+	st, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
 	testSession := Session{Username: "test-user"}
-	value, _, err := ctrl.New(testSession)
+	value, _, err := st.New(testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	_, err = ctrl.Verify(value)
+	_, _, err = st.Verify(value)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -300,13 +304,13 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	_, err = ctrl.Verify(testValue.String())
+	_, _, err = st.Verify(testValue.String())
 	if err == nil {
 		t.Fatal("signature signed by unknown signer should not verify")
 	}
 
-	ctrl.keys = append(ctrl.keys, testSigner)
-	_, err = ctrl.Verify(testValue.String())
+	st.keys = append(st.keys, testSigner)
+	_, _, err = st.Verify(testValue.String())
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
