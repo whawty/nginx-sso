@@ -164,11 +164,11 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleLogout(c *gin.Context) {
-	id, _, err := h.verifyCookie(c)
+	id, session, err := h.verifyCookie(c)
 	if err == nil {
-		if err = h.cookies.Revoke(id); err != nil {
+		if err = h.cookies.Revoke(session.Username, id); err != nil {
 			// TODO: render error page!
-			c.AbortWithError(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, WebError{err.Error()})
 			return
 		}
 	}

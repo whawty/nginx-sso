@@ -77,8 +77,6 @@ type StoredSession struct {
 
 type StoredSessionList []StoredSession
 
-type RevocationList []ulid.ULID
-
 type SignedRevocationList struct {
 	Revoked   json.RawMessage `json:"revoked"`
 	Signature []byte          `json:"signature"`
@@ -87,9 +85,9 @@ type SignedRevocationList struct {
 type StoreBackend interface {
 	Save(username string, id ulid.ULID, session Session) error
 	ListUser(username string) (StoredSessionList, error)
-	Revoke(id ulid.ULID) error
+	Revoke(username string, id ulid.ULID) error
 	IsRevoked(id ulid.ULID) (bool, error)
-	ListRevoked() (RevocationList, error)
+	ListRevoked() (StoredSessionList, error)
 	CollectGarbage() error
 }
 
@@ -265,16 +263,16 @@ func (st *Store) ListUser(username string) (StoredSessionList, error) {
 	return st.backend.ListUser(username)
 }
 
-func (st *Store) Revoke(id string) error {
+func (st *Store) Revoke(username, id string) error {
 	toRevoke, err := ulid.ParseStrict(id)
 	if err != nil {
 		return err
 	}
-	return st.backend.Revoke(toRevoke)
+	return st.backend.Revoke(username, toRevoke)
 }
 
 func (st *Store) ListRevoked() (result SignedRevocationList, err error) {
-	var revoked RevocationList
+	var revoked StoredSessionList
 	if revoked, err = st.backend.ListRevoked(); err != nil {
 		return
 	}

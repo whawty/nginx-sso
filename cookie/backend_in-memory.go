@@ -45,13 +45,13 @@ type InMemorySessionList map[ulid.ULID]Session
 type InMemoryBackend struct {
 	mutex    sync.RWMutex
 	sessions map[string]InMemorySessionList
-	revoked  map[ulid.ULID]bool
+	revoked  InMemorySessionList
 }
 
 func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
 	m := &InMemoryBackend{}
 	m.sessions = make(map[string]InMemorySessionList)
-	m.revoked = make(map[ulid.ULID]bool)
+	m.revoked = make(InMemorySessionList)
 	return m, nil
 }
 
@@ -66,7 +66,7 @@ func (b *InMemoryBackend) Save(username string, id ulid.ULID, session Session) e
 	}
 	if _, exists = sessions[id]; exists {
 		// TODO: this probably should be a panic
-		return fmt.Errorf("session with %v already exists!", id)
+		return fmt.Errorf("session '%v' already exists!", id)
 	}
 	sessions[id] = session
 	return nil
@@ -81,18 +81,25 @@ func (b *InMemoryBackend) ListUser(username string) (list StoredSessionList, err
 		return
 	}
 	for id, session := range sessions {
-		if _, exists = b.revoked[id]; !exists {
-			list = append(list, StoredSession{ID: id, Session: session})
-		}
+		list = append(list, StoredSession{ID: id, Session: session})
 	}
 	return
 }
 
-func (b *InMemoryBackend) Revoke(id ulid.ULID) error {
+func (b *InMemoryBackend) Revoke(username string, id ulid.ULID) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	b.revoked[id] = true
+	sessions, exists := b.sessions[username]
+	if !exists {
+		return fmt.Errorf("session '%v' does not exist", id)
+	}
+	session, exists := sessions[id]
+	if !exists {
+		return fmt.Errorf("session '%v' does not exist", id)
+	}
+	delete(sessions, id)
+	b.revoked[id] = session
 	return nil
 }
 
@@ -104,12 +111,12 @@ func (b *InMemoryBackend) IsRevoked(id ulid.ULID) (bool, error) {
 	return exists, nil
 }
 
-func (b *InMemoryBackend) ListRevoked() (list RevocationList, err error) {
+func (b *InMemoryBackend) ListRevoked() (list StoredSessionList, err error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
-	for id, _ := range b.revoked {
-		list = append(list, id)
+	for id, session := range b.revoked {
+		list = append(list, StoredSession{ID: id, Session: session})
 	}
 	return
 }
@@ -122,9 +129,14 @@ func (b *InMemoryBackend) CollectGarbage() error {
 		for id, session := range sessions {
 			if session.IsExpired() {
 				delete(sessions, id)
-				delete(b.revoked, id)
 			}
 		}
 	}
+	for id, session := range b.revoked {
+		if session.IsExpired() {
+			delete(b.revoked, id)
+		}
+	}
+
 	return nil
 }
