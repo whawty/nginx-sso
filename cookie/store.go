@@ -77,6 +77,14 @@ type StoredSession struct {
 
 type StoredSessionList []StoredSession
 
+func (l StoredSessionList) MarshalJSON() ([]byte, error) {
+	if len(l) == 0 {
+		return []byte("[]"), nil
+	}
+	var tmp []StoredSession = l
+	return json.Marshal(tmp)
+}
+
 type SignedRevocationList struct {
 	Revoked   json.RawMessage `json:"revoked"`
 	Signature []byte          `json:"signature"`
@@ -268,7 +276,11 @@ func (st *Store) Revoke(username, id string) error {
 	if err != nil {
 		return err
 	}
-	return st.backend.Revoke(username, toRevoke)
+	if err = st.backend.Revoke(username, toRevoke); err != nil {
+		return err
+	}
+	st.dbgLog.Printf("successfully revoked session('%v')", id)
+	return nil
 }
 
 func (st *Store) ListRevoked() (result SignedRevocationList, err error) {
