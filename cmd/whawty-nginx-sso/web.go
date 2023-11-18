@@ -48,7 +48,7 @@ import (
 
 type HandlerContext struct {
 	conf    *WebConfig
-	cookies *cookie.Controller
+	cookies *cookie.Store
 	auth    auth.Backend
 }
 
@@ -169,7 +169,7 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, redirect)
 }
 
-func runWeb(config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
+func runWeb(config *WebConfig, cookies *cookie.Store, auth auth.Backend) (err error) {
 	if config.Listen == "" {
 		config.Listen = ":http"
 	}

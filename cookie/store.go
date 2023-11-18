@@ -78,7 +78,7 @@ func (opts *Options) fromConfig(conf *Config) {
 	opts.Secure = conf.Secure
 }
 
-type Controller struct {
+type Store struct {
 	conf    *Config
 	keys    []SignerVerifier
 	signer  SignerVerifier
@@ -86,7 +86,7 @@ type Controller struct {
 	dbgLog  *log.Logger
 }
 
-func NewController(conf *Config, infoLog, dbgLog *log.Logger) (*Controller, error) {
+func NewStore(conf *Config, infoLog, dbgLog *log.Logger) (*Store, error) {
 	if infoLog == nil {
 		infoLog = log.New(io.Discard, "", 0)
 	}
@@ -101,18 +101,18 @@ func NewController(conf *Config, infoLog, dbgLog *log.Logger) (*Controller, erro
 		conf.Expire = DefaultExpire
 	}
 
-	ctrl := &Controller{conf: conf, infoLog: infoLog, dbgLog: dbgLog}
+	ctrl := &Store{conf: conf, infoLog: infoLog, dbgLog: dbgLog}
 	if err := ctrl.initKeys(conf); err != nil {
 		return nil, err
 	}
-	ctrl.infoLog.Printf("cookie-controller: successfully initialized (%d keys loaded)", len(ctrl.keys))
+	ctrl.infoLog.Printf("cookie-store: successfully initialized (%d keys loaded)", len(ctrl.keys))
 	if ctrl.signer == nil {
-		ctrl.infoLog.Printf("cookie-controller: no signing key has been loaded - this instance can only verify cookies")
+		ctrl.infoLog.Printf("cookie-store: no signing key has been loaded - this instance can only verify cookies")
 	}
 	return ctrl, nil
 }
 
-func (c *Controller) initKeys(conf *Config) (err error) {
+func (c *Store) initKeys(conf *Config) (err error) {
 	for _, key := range conf.Keys {
 		var s SignerVerifier
 		if key.Ed25519 != nil {
@@ -131,7 +131,7 @@ func (c *Controller) initKeys(conf *Config) (err error) {
 			c.signer = s
 			mode = "(*sign* and verify)"
 		}
-		c.dbgLog.Printf("cookie-controller: loaded %s key '%s' %s", s.Algo(), key.Name, mode)
+		c.dbgLog.Printf("cookie-store: loaded %s key '%s' %s", s.Algo(), key.Name, mode)
 	}
 	if len(c.keys) < 1 {
 		return fmt.Errorf("at least one key must be configured")
@@ -139,12 +139,12 @@ func (c *Controller) initKeys(conf *Config) (err error) {
 	return
 }
 
-func (c *Controller) Options() (opts Options) {
+func (c *Store) Options() (opts Options) {
 	opts.fromConfig(c.conf)
 	return
 }
 
-func (c *Controller) New(s Session) (value string, opts Options, err error) {
+func (c *Store) New(s Session) (value string, opts Options, err error) {
 	if c.signer == nil {
 		err = fmt.Errorf("no signing key loaded")
 		return
@@ -168,7 +168,7 @@ func (c *Controller) New(s Session) (value string, opts Options, err error) {
 	return
 }
 
-func (c *Controller) Verify(value string) (s Session, err error) {
+func (c *Store) Verify(value string) (s Session, err error) {
 	var v Value
 	if err = v.FromString(value); err != nil {
 		return

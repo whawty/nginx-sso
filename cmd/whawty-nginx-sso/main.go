@@ -57,7 +57,7 @@ func cmdRun(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	cookies, err := cookie.NewController(&conf.Cookie, wl, wdl)
+	cookies, err := cookie.NewStore(&conf.Cookie, wl, wdl)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 2)
 	}

@@ -38,19 +38,19 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-func TestNewController(t *testing.T) {
+func TestNewStore(t *testing.T) {
 	conf := &Config{}
-	_, err := NewController(conf, nil, nil)
+	_, err := NewStore(conf, nil, nil)
 	if err == nil {
-		t.Fatal("initializing controller from empty config should fail")
+		t.Fatal("initializing store from empty config should fail")
 	}
 
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "empty"},
 	}
-	_, err = NewController(conf, nil, nil)
+	_, err = NewStore(conf, nil, nil)
 	if err == nil {
-		t.Fatal("initializing controller with bogus keys config should fail")
+		t.Fatal("initializing store with bogus keys config should fail")
 	}
 
 	keyFilePath := "/path/to/key.pem"
@@ -58,40 +58,40 @@ func TestNewController(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
-	_, err = NewController(conf, nil, nil)
+	_, err = NewStore(conf, nil, nil)
 	if err == nil {
-		t.Fatal("initializing controller with corrupt keys config entries should fail")
+		t.Fatal("initializing store with corrupt keys config entries should fail")
 	}
 
 	ed25519Conf = &Ed25519Config{PubKey: &testPubKeyEd25519Pem}
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
-	ctrl, err := NewController(conf, nil, nil)
+	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
 	if ctrl.conf.Name == "" {
-		t.Fatal("initializing controller default value for cookie name does not work")
+		t.Fatal("initializing store default value for cookie name does not work")
 	}
 	if ctrl.conf.Expire != DefaultExpire {
-		t.Fatal("initializing controller default value for cookie expiry does not work")
+		t.Fatal("initializing store default value for cookie expiry does not work")
 	}
 	if ctrl.signer != nil {
-		t.Fatal("initializing controller with verify-only key must not have signer attribute")
+		t.Fatal("initializing store with verify-only key must not have signer attribute")
 	}
 
 	ed25519Conf = &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
-	ctrl, err = NewController(conf, nil, nil)
+	ctrl, err = NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	if ctrl.signer == nil {
-		t.Fatal("initializing controller with sign-and-verify key must have signer attribute")
+		t.Fatal("initializing store with sign-and-verify key must have signer attribute")
 	}
 }
 
@@ -105,13 +105,13 @@ func TestMultipleKeys(t *testing.T) {
 		SignerVerifierConfig{Name: "verify-only", Ed25519: ed25519ConfVerifyOnly},
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: ed25519ConfSignAndVerify},
 	}
-	ctrl, err := NewController(conf, nil, nil)
+	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
 	if ctrl.signer == nil {
-		t.Fatal("initializing controller with at least one sign-and-verify key must have signer attribute")
+		t.Fatal("initializing store with at least one sign-and-verify key must have signer attribute")
 	}
 	ed25519Signer, ok := ctrl.signer.(*Ed25519SignerVerifier)
 	if !ok {
@@ -128,7 +128,7 @@ func TestNew(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "verify-only", Ed25519: &Ed25519Config{PubKey: &testPubKeyEd25519Pem}},
 	}
-	ctrl, err := NewController(conf, nil, nil)
+	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -136,13 +136,13 @@ func TestNew(t *testing.T) {
 	testSession := Session{Username: "test-user"}
 	_, _, err = ctrl.New(testSession)
 	if err == nil {
-		t.Fatal("calling New() on verify-only controller must return an error")
+		t.Fatal("calling New() on verify-only store must return an error")
 	}
 
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
 	}
-	ctrl, err = NewController(conf, nil, nil)
+	ctrl, err = NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -186,7 +186,7 @@ func TestVerify(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
 	}
-	ctrl, err := NewController(conf, nil, nil)
+	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -263,7 +263,7 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
 	}
-	ctrl, err := NewController(conf, nil, nil)
+	ctrl, err := NewStore(conf, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
