@@ -190,17 +190,17 @@ func (b *WhawtyAuthBackend) Authenticate(username, password string) error {
 	b.storeMutex.RLock()
 	defer b.storeMutex.RUnlock()
 	ok, _, upgradeable, _, err := b.store.Authenticate(username, password)
-	if ok && upgradeable && b.upgradeChan != nil {
-		select {
-		case b.upgradeChan <- whawtyUpgradeRequest{Username: username, OldPassword: password}:
-		default: // remote upgrades are opportunistic
-		}
-	}
 	if err != nil {
 		return err
 	}
 	if !ok {
 		return fmt.Errorf("invalid username or password")
+	}
+	if upgradeable && b.upgradeChan != nil {
+		select {
+		case b.upgradeChan <- whawtyUpgradeRequest{Username: username, OldPassword: password}:
+		default: // remote upgrades are opportunistic
+		}
 	}
 	return nil
 }
