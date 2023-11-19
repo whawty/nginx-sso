@@ -137,7 +137,8 @@ func TestNew(t *testing.T) {
 	}
 
 	testUser := "test-user"
-	_, _, err = st.New(testUser)
+	testAgent := AgentInfo{Name: "test-agent", OS: "test-os"}
+	_, _, err = st.New(testUser, testAgent)
 	if err == nil {
 		t.Fatal("calling New() on verify-only store must return an error")
 	}
@@ -149,7 +150,7 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	value, opts, err := st.New(testUser)
+	value, opts, err := st.New(testUser, testAgent)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -278,7 +279,8 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	}
 
 	testUser := "test-user"
-	value, _, err := st.New(testUser)
+	testAgent := AgentInfo{Name: "test-agent", OS: "test-os"}
+	value, _, err := st.New(testUser, testAgent)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}

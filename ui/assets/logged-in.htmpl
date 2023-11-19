@@ -10,6 +10,7 @@
     <link href="{{ login.BasePath }}/ui/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ login.BasePath }}/ui/fontawesome/css/fontawesome.min.css" rel="stylesheet">
     <link href="{{ login.BasePath }}/ui/fontawesome/css/solid.min.css" rel="stylesheet">
+    <link href="{{ login.BasePath }}/ui/fontawesome/css/brands.min.css" rel="stylesheet">
     <link href="{{ login.BasePath }}/ui/css/main.css" rel="stylesheet">
   </head>
   <body>
@@ -69,13 +70,23 @@
           <div class="col-md-2"></div>
         </div>
 {% endif %}
-{% for s in sessions %}
-{%   if s.ID != session.ID %}
+{% for other in sessions %}
+{%   if other.ID != session.ID %}
         <div class="row">
-          <div class="col-md-1"></div>
-          <div class="col-md-4">{{ s.ID }}</div>
-          <div class="col-md-3">{{ session.CreatedAt() | time:"Mon 1.2.2006 15:04:05" }}</div>
-          <div class="col-md-3">{{ session.ExpiresAt() | time:"Mon 1.2.2006 15:04:05" }}</div>
+          <div class="col-md-2"></div>
+          <div class="col-md-3">
+            {# TODO: lookup function for fontawesome name? #}
+            <i class="fa-brands fa-{{ other.Agent.Name | lower }}" aria-hidden="true"></i> {{ other.Agent.Name | escape }} /
+            <i class="fa-brands fa-{{ other.Agent.OS | lower }}" aria-hidden="true"></i> {{ other.Agent.OS | escape }}
+          </div>
+          <div class="col-md-2"> --FIXME-- {# other.CreatedAt() | time:"Mon 1.2.2006 15:04:05" #}</div>
+          <div class="col-md-2"> --FIXME-- {# other.ExpiresAt() | time:"Mon 1.2.2006 15:04:05" #}</div>
+          <div class="col-md-2">
+            <form method="get" action="{{ login.BasePath }}/logout">
+              <input type=hidden name=id value="{{ other.ID }}">
+              <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
+            </form>
+          </div>
           <div class="col-md-1"></div>
         </div>
 {%   endif %}

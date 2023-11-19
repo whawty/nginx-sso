@@ -40,22 +40,27 @@ import (
 type InMemoryBackendConfig struct {
 }
 
-type InMemorySessionMap map[ulid.ULID]SessionBase
+type InMemorySession struct {
+	SessionBase
+	Agent AgentInfo `json:"agent"`
+}
+
+type InMemorySessionMap map[ulid.ULID]InMemorySession
 
 type InMemoryBackend struct {
 	mutex    sync.RWMutex
 	sessions map[string]InMemorySessionMap
-	revoked  InMemorySessionMap
+	revoked  map[ulid.ULID]SessionBase
 }
 
 func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
 	m := &InMemoryBackend{}
 	m.sessions = make(map[string]InMemorySessionMap)
-	m.revoked = make(InMemorySessionMap)
+	m.revoked = make(map[ulid.ULID]SessionBase)
 	return m, nil
 }
 
-func (b *InMemoryBackend) Save(session Session) error {
+func (b *InMemoryBackend) Save(session SessionFull) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -67,11 +72,11 @@ func (b *InMemoryBackend) Save(session Session) error {
 	if _, exists = sessions[session.ID]; exists {
 		return fmt.Errorf("session '%v' already exists!", session.ID)
 	}
-	sessions[session.ID] = session.SessionBase
+	sessions[session.ID] = InMemorySession{SessionBase: session.SessionBase, Agent: session.Agent}
 	return nil
 }
 
-func (b *InMemoryBackend) ListUser(username string) (list SessionList, err error) {
+func (b *InMemoryBackend) ListUser(username string) (list SessionFullList, err error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
@@ -81,7 +86,7 @@ func (b *InMemoryBackend) ListUser(username string) (list SessionList, err error
 	}
 	for id, session := range sessions {
 		if _, revoked := b.revoked[id]; !revoked {
-			list = append(list, Session{ID: id, SessionBase: session})
+			list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
 		}
 	}
 	return

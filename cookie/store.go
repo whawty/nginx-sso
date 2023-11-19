@@ -93,14 +93,42 @@ func (l SessionList) MarshalJSON() ([]byte, error) {
 	return json.Marshal(tmp)
 }
 
+type AgentInfo struct {
+	Name string `json:"name"`
+	OS   string `json:"os"`
+}
+
+type SessionFull struct {
+	Session
+	Agent AgentInfo `json:"agent"`
+}
+
+func (s *SessionFull) CreatedAt() time.Time {
+	return s.Session.CreatedAt()
+}
+
+func (s *SessionFull) ExpiresAt() time.Time {
+	return s.Session.ExpiresAt()
+}
+
+type SessionFullList []SessionFull
+
+func (l SessionFullList) MarshalJSON() ([]byte, error) {
+	if len(l) == 0 {
+		return []byte("[]"), nil
+	}
+	var tmp []SessionFull = l
+	return json.Marshal(tmp)
+}
+
 type SignedRevocationList struct {
 	Revoked   json.RawMessage `json:"revoked"`
 	Signature []byte          `json:"signature"`
 }
 
 type StoreBackend interface {
-	Save(session Session) error
-	ListUser(username string) (SessionList, error)
+	Save(session SessionFull) error
+	ListUser(username string) (SessionFullList, error)
 	Revoke(session Session) error
 	IsRevoked(session Session) (bool, error)
 	ListRevoked() (SessionList, error)
@@ -327,7 +355,7 @@ func (st *Store) Options() (opts Options) {
 	return
 }
 
-func (st *Store) New(username string) (value string, opts Options, err error) {
+func (st *Store) New(username string, ai AgentInfo) (value string, opts Options, err error) {
 	if st.signer == nil {
 		err = fmt.Errorf("no signing key loaded")
 		return
@@ -344,7 +372,7 @@ func (st *Store) New(username string) (value string, opts Options, err error) {
 		return
 	}
 
-	if err = st.backend.Save(Session{ID: id, SessionBase: s}); err != nil {
+	if err = st.backend.Save(SessionFull{Session: Session{ID: id, SessionBase: s}, Agent: ai}); err != nil {
 		return
 	}
 	st.dbgLog.Printf("successfully generated new session('%v'): %+v", id, s)
@@ -393,7 +421,7 @@ func (st *Store) Verify(value string) (s Session, err error) {
 	return
 }
 
-func (st *Store) ListUser(username string) (SessionList, error) {
+func (st *Store) ListUser(username string) (SessionFullList, error) {
 	return st.backend.ListUser(username)
 }
 

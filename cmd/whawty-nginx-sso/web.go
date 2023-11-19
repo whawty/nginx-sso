@@ -40,6 +40,7 @@ import (
 
 	"github.com/flosch/pongo2/v6"
 	"github.com/gin-gonic/gin"
+	"github.com/mileusna/useragent"
 	"github.com/whawty/nginx-sso/auth"
 	"github.com/whawty/nginx-sso/cookie"
 	"github.com/whawty/nginx-sso/ui"
@@ -142,7 +143,8 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 		return
 	}
 
-	value, opts, err := h.cookies.New(username)
+	ua := useragent.Parse(c.GetHeader("User-Agent"))
+	value, opts, err := h.cookies.New(username, cookie.AgentInfo{Name: ua.Name, OS: ua.OS})
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
 			"login":    login,
@@ -160,6 +162,13 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleLogout(c *gin.Context) {
+	id, _ := c.GetQuery("id")
+	if id != "" {
+		// TODO: implement this!
+		c.JSON(http.StatusNotImplemented, WebError{"logout of other sessions is not yet implemented"})
+		return
+	}
+
 	session, err := h.verifyCookie(c)
 	if err == nil {
 		if err = h.cookies.Revoke(*session); err != nil {
