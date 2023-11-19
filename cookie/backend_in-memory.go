@@ -65,7 +65,6 @@ func (b *InMemoryBackend) Save(username string, id ulid.ULID, session Session) e
 		b.sessions[username] = sessions
 	}
 	if _, exists = sessions[id]; exists {
-		// TODO: this probably should be a panic
 		return fmt.Errorf("session '%v' already exists!", id)
 	}
 	sessions[id] = session

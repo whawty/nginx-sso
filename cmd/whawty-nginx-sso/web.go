@@ -196,7 +196,28 @@ func (h *HandlerContext) handleSessions(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleRevocations(c *gin.Context) {
-	// TODO: add authentication based on bearer tokens!
+	auth_header := c.GetHeader("Authorization")
+	if auth_header == "" {
+		c.JSON(http.StatusUnauthorized, WebError{"no authorization header found"})
+		return
+	}
+	auth_parts := strings.SplitN(auth_header, " ", 2)
+	if len(auth_parts) != 2 || auth_parts[0] != "Bearer" {
+		c.JSON(http.StatusUnauthorized, WebError{"authorization header is invalid"})
+		return
+	}
+	authenticated := false
+	for _, token := range h.conf.Revocations.Tokens {
+		if token == auth_parts[1] {
+			authenticated = true
+			break
+		}
+	}
+	if !authenticated {
+		c.JSON(http.StatusUnauthorized, WebError{"unauthorized token"})
+		return
+	}
+
 	revocations, err := h.cookies.ListRevoked()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, WebError{err.Error()})
