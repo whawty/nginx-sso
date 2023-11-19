@@ -213,7 +213,6 @@ func (st *Store) runGC(interval time.Duration) {
 
 func (st *Store) syncRevocations(client *http.Client, syncBaseURL *url.URL, token string) {
 	req, _ := http.NewRequest("GET", syncBaseURL.JoinPath("revocations").String(), nil)
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {

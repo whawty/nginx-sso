@@ -8,7 +8,7 @@ cookie:
         -----END PUBLIC KEY-----
   backend:
     sync:
-      interval: 20s
+      interval: 5s
       base-url: http://localhost:1234
       token: this-is-a-very-secret-token
     in-memory: {}
