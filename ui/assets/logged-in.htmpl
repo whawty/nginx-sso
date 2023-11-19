@@ -15,22 +15,28 @@
   <body>
     <div class="container-fluid">
       <div class="topspacer">&nbsp;</div>
-
-      <div id="user-view">
-        <div class="row">
-          <div class="col-md-4"></div>
-            <div class="col-md-4">
-              <h1>User: <strong class="username">{{ username | escape }}</strong></h1>
+        <div id="user-view">
+          <div class="row">
+            <div class="col-md-3"></div>
+            <div class="col-md-6">
+              <h1>User: <strong class="username">{{ session.Username | escape }}</strong></h1>
             </div>
-            <div class="col-md-4"></div>
+            <div class="col-md-3"></div>
           </div>
 
           <div class="row">
-            <div class="col-md-4"></div>
-            <div class="col-md-4">
-              expires: <strong class="expires">{{ expires | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
+            <div class="col-md-3"></div>
+            <div class="col-md-6">
+              created: <strong>{{ session.CreatedAt() | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
             </div>
-            <div class="col-md-4"></div>
+            <div class="col-md-3"></div>
+          </div>
+          <div class="row">
+            <div class="col-md-3"></div>
+            <div class="col-md-6">
+              expires: <strong>{{ session.ExpiresAt() | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
+            </div>
+            <div class="col-md-3"></div>
           </div>
 
           <div class="row">

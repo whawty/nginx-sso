@@ -58,6 +58,19 @@ func (s *SessionBase) IsExpired() bool {
 	return time.Unix(s.Expires, 0).Before(time.Now())
 }
 
+type Session struct {
+	ID ulid.ULID `json:"id"`
+	SessionBase
+}
+
+func (s *Session) CreatedAt() time.Time {
+	return time.UnixMilli((int64)(s.ID.Time()))
+}
+
+func (s *Session) ExpiresAt() time.Time {
+	return time.Unix(s.Expires, 0)
+}
+
 type Value struct {
 	payload   []byte
 	signature []byte

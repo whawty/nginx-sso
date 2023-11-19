@@ -83,11 +83,6 @@ type SignerVerifier interface {
 	Verify(payload, signature []byte) error
 }
 
-type Session struct {
-	ID ulid.ULID `json:"id"`
-	SessionBase
-}
-
 type SessionList []Session
 
 func (l SessionList) MarshalJSON() ([]byte, error) {
@@ -107,7 +102,7 @@ type StoreBackend interface {
 	Save(session Session) error
 	ListUser(username string) (SessionList, error)
 	Revoke(session Session) error
-	IsRevoked(id ulid.ULID) (bool, error)
+	IsRevoked(session Session) (bool, error)
 	ListRevoked() (SessionList, error)
 	LoadRevocations(SessionList) (uint, error)
 	CollectGarbage() (uint, error)
@@ -385,7 +380,7 @@ func (st *Store) Verify(value string) (s Session, err error) {
 	}
 
 	var revoked bool
-	if revoked, err = st.backend.IsRevoked(s.ID); err != nil {
+	if revoked, err = st.backend.IsRevoked(s); err != nil {
 		err = fmt.Errorf("failed to check for cookie revocation: %v", err)
 		return
 	}

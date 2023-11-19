@@ -95,11 +95,11 @@ func (b *InMemoryBackend) Revoke(session Session) error {
 	return nil
 }
 
-func (b *InMemoryBackend) IsRevoked(id ulid.ULID) (bool, error) {
+func (b *InMemoryBackend) IsRevoked(session Session) (bool, error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
-	_, exists := b.revoked[id]
+	_, exists := b.revoked[session.ID]
 	return exists, nil
 }
 

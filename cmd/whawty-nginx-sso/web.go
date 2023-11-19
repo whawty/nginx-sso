@@ -100,9 +100,8 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 	if err == nil {
 		// TODO: follow redir?
 		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
-			"login":    login,
-			"username": session.Username,
-			"expires":  time.Unix(session.Expires, 0),
+			"login":   login,
+			"session": session,
 		})
 		return
 	}
@@ -153,12 +152,7 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
 
 	if redirect == "" {
-		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
-			"login":    login,
-			"username": username,
-			"expires":  time.Now().Add(time.Duration(opts.MaxAge) * time.Second),
-		})
-		return
+		redirect = path.Join(h.getBasePath(c), "login")
 	}
 	c.Redirect(http.StatusSeeOther, redirect)
 }
