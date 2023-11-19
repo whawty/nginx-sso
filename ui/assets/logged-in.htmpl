@@ -15,41 +15,73 @@
   <body>
     <div class="container-fluid">
       <div class="topspacer">&nbsp;</div>
-        <div id="user-view">
-          <div class="row">
-            <div class="col-md-3"></div>
-            <div class="col-md-6">
-              <h1>User: <strong class="username">{{ session.Username | escape }}</strong></h1>
-            </div>
-            <div class="col-md-3"></div>
+      <div id="user-view">
+        <div class="row">
+          <div class="col-md-3"></div>
+          <div class="col-md-6">
+            <h1>User: <strong class="username">{{ session.Username | escape }}</strong></h1>
           </div>
+          <div class="col-md-3"></div>
+        </div>
 
-          <div class="row">
-            <div class="col-md-3"></div>
-            <div class="col-md-6">
-              created: <strong>{{ session.CreatedAt() | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
-            </div>
-            <div class="col-md-3"></div>
+        <div class="row">
+          <div class="col-md-3"></div>
+          <div class="col-md-6">
+            created: <strong>{{ session.CreatedAt() | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
           </div>
-          <div class="row">
-            <div class="col-md-3"></div>
-            <div class="col-md-6">
-              expires: <strong>{{ session.ExpiresAt() | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
-            </div>
-            <div class="col-md-3"></div>
+          <div class="col-md-3"></div>
+        </div>
+        <div class="row">
+          <div class="col-md-3"></div>
+          <div class="col-md-6">
+            expires: <strong>{{ session.ExpiresAt() | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
           </div>
+          <div class="col-md-3"></div>
+        </div>
 
-          <div class="row">
-            <div class="col-md-4"></div>
-            <div class="col-md-4">
-              <form method="get" action="{{ login.BasePath }}/logout">
-                <button type="submit" class="btn btn-danger btn-lg"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
-              </form>
-            </div>
-            <div class="col-md-4"></div>
+        <div class="row">
+          <div class="col-md-3"></div>
+          <div class="col-md-6">
+            <form method="get" action="{{ login.BasePath }}/logout">
+              <button type="submit" class="btn btn-danger btn-lg"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
+            </form>
           </div>
+          <div class="col-md-3"></div>
         </div>
       </div>
+      <div class="topspacer">&nbsp;</div>
+      <div id="sessions-view">
+        <div class="row">
+          <div class="col-md-2"></div>
+          <div class="col-md-10"><h2>Other Sessions</h2></div>
+        </div>
+{% if alert %}
+        <div class="row">
+          <div class="col-md-2"></div>
+          <div class="col-md-8">
+            <div class="alertbox">
+               <div class="alert alert-{{ alert.Level }} alert-dismissible fade show" role="alert">
+                 <strong>{{ alert.Heading | escape }}:</strong> {{ alert.Message | escape }}
+                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+               </div>
+            </div>
+          </div>
+          <div class="col-md-2"></div>
+        </div>
+{% endif %}
+{% for s in sessions %}
+{%   if s.ID != session.ID %}
+        <div class="row">
+          <div class="col-md-1"></div>
+          <div class="col-md-4">{{ s.ID }}</div>
+          <div class="col-md-3">{{ session.CreatedAt() | time:"Mon 1.2.2006 15:04:05" }}</div>
+          <div class="col-md-3">{{ session.ExpiresAt() | time:"Mon 1.2.2006 15:04:05" }}</div>
+          <div class="col-md-1"></div>
+        </div>
+{%   endif %}
+{% endfor %}
+      </div>
     </div>
+    <script src="{{ login.BasePath }}/ui/bootstrap/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

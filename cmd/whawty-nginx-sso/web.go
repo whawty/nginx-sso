@@ -98,11 +98,13 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 
 	session, err := h.verifyCookie(c)
 	if err == nil {
-		// TODO: follow redir?
-		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
-			"login":   login,
-			"session": session,
-		})
+		ctx := pongo2.Context{"login": login, "session": session}
+		sessions, err := h.cookies.ListUser(session.Username)
+		ctx["sessions"] = sessions
+		if err != nil {
+			ctx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "failed to load user sessions", Message: err.Error()}
+		}
+		c.HTML(http.StatusOK, "logged-in.htmpl", ctx)
 		return
 	}
 
