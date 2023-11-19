@@ -31,13 +31,16 @@
 package cookie
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/spreadspace/tlsconfig"
 )
 
 const (
@@ -51,8 +54,13 @@ type SignerVerifierConfig struct {
 }
 
 type StoreBackendConfig struct {
-	GCInterval time.Duration          `yaml:"gc-interval"`
-	InMemory   *InMemoryBackendConfig `yaml:"in-memory"`
+	GCInterval time.Duration `yaml:"gc-interval"`
+	Sync       struct {
+		Interval  time.Duration        `yaml:"interval"`
+		BaseURL   string               `yaml:"base-url"`
+		TLSConfig *tlsconfig.TLSConfig `yaml:"tls"`
+	} `yaml:"sync"`
+	InMemory *InMemoryBackendConfig `yaml:"in-memory"`
 }
 
 type Config struct {
@@ -198,10 +206,42 @@ func (st *Store) runGC(interval time.Duration) {
 	}
 }
 
+func (st *Store) runSync(interval time.Duration, syncBaseURL *url.URL, tlsConfig *tls.Config) {
+	t := time.NewTicker(interval)
+	st.dbgLog.Printf("cookie-store: running sync every %v", interval)
+	for {
+		if _, ok := <-t.C; !ok {
+			return
+		}
+		// TODO: implement this
+		if tlsConfig == nil {
+			st.infoLog.Printf("cookie-store: syncing revocations from: %s", syncBaseURL.String())
+		} else {
+			st.infoLog.Printf("cookie-store: syncing revocation from: %s (using custom TLS-config)", syncBaseURL.String())
+		}
+	}
+}
+
 func (st *Store) initBackend(conf *Config) (err error) {
 	if conf.Backend.GCInterval <= time.Second {
 		st.infoLog.Printf("cookie-store: overriding invalid/unset GC interval to 5 minutes")
 		conf.Backend.GCInterval = 5 * time.Minute
+	}
+	var syncBaseURL *url.URL
+	var syncTLSConfig *tls.Config
+	if conf.Backend.Sync.BaseURL != "" {
+		if syncBaseURL, err = url.Parse(conf.Backend.Sync.BaseURL); err != nil {
+			return
+		}
+		if conf.Backend.Sync.Interval <= time.Second {
+			st.infoLog.Printf("cookie-store: overriding invalid/unset GC interval to 10 seconds")
+			conf.Backend.Sync.Interval = 10 * time.Second
+		}
+		if conf.Backend.Sync.TLSConfig != nil {
+			if syncTLSConfig, err = conf.Backend.Sync.TLSConfig.ToGoTLSConfig(); err != nil {
+				return
+			}
+		}
 	}
 
 	if conf.Backend.InMemory != nil {
@@ -217,6 +257,9 @@ func (st *Store) initBackend(conf *Config) (err error) {
 	}
 
 	go st.runGC(conf.Backend.GCInterval)
+	if syncBaseURL != nil {
+		go st.runSync(conf.Backend.Sync.Interval, syncBaseURL, syncTLSConfig)
+	}
 	return
 }
 

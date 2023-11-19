@@ -32,7 +32,21 @@ cookie:
   #     ## generate with `openssl pkey -in ./contrib/bar_ed25519_priv.pem -pubout -out ./contrib/bar_ed25519_pub.pem`
   #     public-key-file: ./contrib/bar_ed25519_pub.pem
   backend:
-    # gc-interval: 10s
+    # gc-interval: 5m
+    # sync:
+    #   interval: 10s
+    #   base-url: http://localhost:1234
+    #   tls:
+    #     insecure-skip-verify: true
+    #     ca-certificates: |
+    #       -----BEGIN CERTIFICATE-----
+    #       ...
+    #       -----END CERTIFICATE-----
+    #       -----BEGIN CERTIFICATE-----
+    #       ...
+    #       -----END CERTIFICATE-----
+    #     ca-certificate-files:
+    #     - root-ca.pem
     in-memory: {}
 
 auth:
