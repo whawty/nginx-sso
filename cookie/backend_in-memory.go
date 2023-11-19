@@ -40,38 +40,38 @@ import (
 type InMemoryBackendConfig struct {
 }
 
-type InMemorySessionList map[ulid.ULID]Session
+type InMemorySessionMap map[ulid.ULID]SessionBase
 
 type InMemoryBackend struct {
 	mutex    sync.RWMutex
-	sessions map[string]InMemorySessionList
-	revoked  InMemorySessionList
+	sessions map[string]InMemorySessionMap
+	revoked  InMemorySessionMap
 }
 
 func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
 	m := &InMemoryBackend{}
-	m.sessions = make(map[string]InMemorySessionList)
-	m.revoked = make(InMemorySessionList)
+	m.sessions = make(map[string]InMemorySessionMap)
+	m.revoked = make(InMemorySessionMap)
 	return m, nil
 }
 
-func (b *InMemoryBackend) Save(id ulid.ULID, session Session) error {
+func (b *InMemoryBackend) Save(session Session) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
 	sessions, exists := b.sessions[session.Username]
 	if !exists {
-		sessions = make(InMemorySessionList)
+		sessions = make(InMemorySessionMap)
 		b.sessions[session.Username] = sessions
 	}
-	if _, exists = sessions[id]; exists {
-		return fmt.Errorf("session '%v' already exists!", id)
+	if _, exists = sessions[session.ID]; exists {
+		return fmt.Errorf("session '%v' already exists!", session.ID)
 	}
-	sessions[id] = session
+	sessions[session.ID] = session.SessionBase
 	return nil
 }
 
-func (b *InMemoryBackend) ListUser(username string) (list StoredSessionList, err error) {
+func (b *InMemoryBackend) ListUser(username string) (list SessionList, err error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
@@ -81,46 +81,46 @@ func (b *InMemoryBackend) ListUser(username string) (list StoredSessionList, err
 	}
 	for id, session := range sessions {
 		if _, revoked := b.revoked[id]; !revoked {
-			list = append(list, StoredSession{ID: id, Session: session})
+			list = append(list, Session{ID: id, SessionBase: session})
 		}
 	}
 	return
 }
 
-func (b *InMemoryBackend) Revoke(id ulid.ULID, session Session) error {
+func (b *InMemoryBackend) Revoke(session Session) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	b.revoked[id] = session
+	b.revoked[session.ID] = session.SessionBase
 	return nil
 }
 
-func (b *InMemoryBackend) IsRevoked(id ulid.ULID) (bool, error) {
+func (b *InMemoryBackend) IsRevoked(session Session) (bool, error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
-	_, exists := b.revoked[id]
+	_, exists := b.revoked[session.ID]
 	return exists, nil
 }
 
-func (b *InMemoryBackend) ListRevoked() (list StoredSessionList, err error) {
+func (b *InMemoryBackend) ListRevoked() (list SessionList, err error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
 	for id, session := range b.revoked {
-		list = append(list, StoredSession{ID: id, Session: session})
+		list = append(list, Session{ID: id, SessionBase: session})
 	}
 	return
 }
 
-func (b *InMemoryBackend) LoadRevocations(list StoredSessionList) (cnt uint, err error) {
+func (b *InMemoryBackend) LoadRevocations(list SessionList) (cnt uint, err error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
 	cnt = 0
 	for _, session := range list {
 		if _, exists := b.revoked[session.ID]; !exists {
-			b.revoked[session.ID] = session.Session
+			b.revoked[session.ID] = session.SessionBase
 			cnt = cnt + 1
 		}
 	}

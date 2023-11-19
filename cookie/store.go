@@ -83,18 +83,13 @@ type SignerVerifier interface {
 	Verify(payload, signature []byte) error
 }
 
-type StoredSession struct {
-	ID      ulid.ULID `json:"id"`
-	Session Session   `josn:"session"`
-}
+type SessionList []Session
 
-type StoredSessionList []StoredSession
-
-func (l StoredSessionList) MarshalJSON() ([]byte, error) {
+func (l SessionList) MarshalJSON() ([]byte, error) {
 	if len(l) == 0 {
 		return []byte("[]"), nil
 	}
-	var tmp []StoredSession = l
+	var tmp []Session = l
 	return json.Marshal(tmp)
 }
 
@@ -104,12 +99,12 @@ type SignedRevocationList struct {
 }
 
 type StoreBackend interface {
-	Save(id ulid.ULID, session Session) error
-	ListUser(username string) (StoredSessionList, error)
-	Revoke(id ulid.ULID, session Session) error
-	IsRevoked(id ulid.ULID) (bool, error)
-	ListRevoked() (StoredSessionList, error)
-	LoadRevocations(StoredSessionList) (uint, error)
+	Save(session Session) error
+	ListUser(username string) (SessionList, error)
+	Revoke(session Session) error
+	IsRevoked(session Session) (bool, error)
+	ListRevoked() (SessionList, error)
+	LoadRevocations(SessionList) (uint, error)
 	CollectGarbage() (uint, error)
 }
 
@@ -242,7 +237,7 @@ func (st *Store) syncRevocations(client *http.Client, syncBaseURL *url.URL, toke
 		return
 	}
 
-	var list StoredSessionList
+	var list SessionList
 	if err = json.Unmarshal(signed.Revoked, &list); err != nil {
 		st.infoLog.Printf("sync-store: error parsing sync response: %v", err)
 		return
@@ -332,12 +327,13 @@ func (st *Store) Options() (opts Options) {
 	return
 }
 
-func (st *Store) New(s Session) (value string, opts Options, err error) {
+func (st *Store) New(username string) (value string, opts Options, err error) {
 	if st.signer == nil {
 		err = fmt.Errorf("no signing key loaded")
 		return
 	}
 
+	s := SessionBase{Username: username}
 	s.SetExpiry(st.conf.Expire)
 	id := ulid.Make()
 	var v *Value
@@ -348,7 +344,7 @@ func (st *Store) New(s Session) (value string, opts Options, err error) {
 		return
 	}
 
-	if err = st.backend.Save(id, s); err != nil {
+	if err = st.backend.Save(Session{ID: id, SessionBase: s}); err != nil {
 		return
 	}
 	st.dbgLog.Printf("successfully generated new session('%v'): %+v", id, s)
@@ -358,7 +354,7 @@ func (st *Store) New(s Session) (value string, opts Options, err error) {
 	return
 }
 
-func (st *Store) Verify(value string) (id string, s Session, err error) {
+func (st *Store) Verify(value string) (s Session, err error) {
 	var v Value
 	if err = v.FromString(value); err != nil {
 		return
@@ -374,23 +370,6 @@ func (st *Store) Verify(value string) (id string, s Session, err error) {
 		return
 	}
 
-	var _id ulid.ULID
-	if _id, err = v.ID(); err != nil {
-		err = fmt.Errorf("unable to decode cookie: %v", err)
-		return
-	}
-	id = _id.String()
-
-	var revoked bool
-	if revoked, err = st.backend.IsRevoked(_id); err != nil {
-		err = fmt.Errorf("failed to check for cookie revocation: %v", err)
-		return
-	}
-	if revoked {
-		err = fmt.Errorf("cookie is revoked")
-		return
-	}
-
 	if s, err = v.Session(); err != nil {
 		err = fmt.Errorf("unable to decode cookie: %v", err)
 		return
@@ -400,28 +379,34 @@ func (st *Store) Verify(value string) (id string, s Session, err error) {
 		return
 	}
 
-	st.dbgLog.Printf("successfully verified session('%v'): %+v", id, s)
+	var revoked bool
+	if revoked, err = st.backend.IsRevoked(s); err != nil {
+		err = fmt.Errorf("failed to check for cookie revocation: %v", err)
+		return
+	}
+	if revoked {
+		err = fmt.Errorf("cookie is revoked")
+		return
+	}
+
+	st.dbgLog.Printf("successfully verified session('%v'): %+v", s.ID, s.SessionBase)
 	return
 }
 
-func (st *Store) ListUser(username string) (StoredSessionList, error) {
+func (st *Store) ListUser(username string) (SessionList, error) {
 	return st.backend.ListUser(username)
 }
 
-func (st *Store) Revoke(id string, session Session) error {
-	toRevoke, err := ulid.ParseStrict(id)
-	if err != nil {
+func (st *Store) Revoke(session Session) error {
+	if err := st.backend.Revoke(session); err != nil {
 		return err
 	}
-	if err = st.backend.Revoke(toRevoke, session); err != nil {
-		return err
-	}
-	st.dbgLog.Printf("successfully revoked session('%v')", id)
+	st.dbgLog.Printf("successfully revoked session('%v')", session.ID)
 	return nil
 }
 
 func (st *Store) ListRevoked() (result SignedRevocationList, err error) {
-	var revoked StoredSessionList
+	var revoked SessionList
 	if revoked, err = st.backend.ListRevoked(); err != nil {
 		return
 	}

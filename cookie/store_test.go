@@ -136,8 +136,8 @@ func TestNew(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	testSession := Session{Username: "test-user"}
-	_, _, err = st.New(testSession)
+	testUser := "test-user"
+	_, _, err = st.New(testUser)
 	if err == nil {
 		t.Fatal("calling New() on verify-only store must return an error")
 	}
@@ -149,7 +149,7 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	value, opts, err := st.New(testSession)
+	value, opts, err := st.New(testUser)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -174,8 +174,8 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if s.Username != testSession.Username {
-		t.Fatalf("the username is wrong, expected: %s, got %s", testSession.Username, s.Username)
+	if s.Username != testUser {
+		t.Fatalf("the username is wrong, expected: %s, got %s", testUser, s.Username)
 	}
 	expire := time.Unix(s.Expires, 0).Sub(time.Now())
 	expiresDiff := DefaultExpire - expire
@@ -195,12 +195,12 @@ func TestVerify(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	_, _, err = st.Verify("")
+	_, err = st.Verify("")
 	if err == nil {
 		t.Fatal("verifing invalid cookie value should fail")
 	}
 
-	testSession := Session{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
+	testSession := SessionBase{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
 	testValue, err := MakeValue(ulid.Make(), testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -216,7 +216,7 @@ func TestVerify(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	_, _, err = st.Verify(testValue.String())
+	_, err = st.Verify(testValue.String())
 	if err == nil {
 		t.Fatal("signature signed by unknown signer should not verify")
 	}
@@ -226,19 +226,19 @@ func TestVerify(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	_, _, err = st.Verify(testValue.String())
+	_, err = st.Verify(testValue.String())
 	if err == nil {
 		t.Fatal("extracting an ivalid payload should fail")
 	}
 
-	if testValue, err = MakeValue(ulid.Make(), Session{Username: "test-user", Expires: time.Now().Unix()}); err != nil {
+	if testValue, err = MakeValue(ulid.Make(), SessionBase{Username: "test-user", Expires: time.Now().Unix()}); err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	testValue.signature, err = st.signer.Sign(testValue.payload)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	_, _, err = st.Verify(testValue.String())
+	_, err = st.Verify(testValue.String())
 	if err == nil {
 		t.Fatal("expired cookie should not successfully verify")
 	}
@@ -252,15 +252,15 @@ func TestVerify(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	id, s, err := st.Verify(testValue.String())
+	s, err := st.Verify(testValue.String())
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	if s.Username != testSession.Username {
 		t.Fatalf("the username is wrong, expected: %s, got %s", testSession.Username, s.Username)
 	}
-	if testID.String() != id {
-		t.Fatalf("the id is wrong, expected: %s, got %s", testID.String(), id)
+	if s.ID.Compare(testID) != 0 {
+		t.Fatalf("the id is wrong, expected: %s, got %s", testID.String(), s.ID)
 	}
 }
 
@@ -277,13 +277,13 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	testSession := Session{Username: "test-user"}
-	value, _, err := st.New(testSession)
+	testUser := "test-user"
+	value, _, err := st.New(testUser)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	_, _, err = st.Verify(value)
+	_, err = st.Verify(value)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -295,6 +295,7 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	testSignerName := "secondary"
 	testSigner := &Ed25519SignerVerifier{context: conf.Name + "_" + testSignerName, priv: priv, pub: pub}
 
+	testSession := SessionBase{Username: testUser}
 	testSession.Expires = time.Now().Add(time.Hour).Unix()
 	testValue, err := MakeValue(ulid.Make(), testSession)
 	if err != nil {
@@ -304,13 +305,13 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	_, _, err = st.Verify(testValue.String())
+	_, err = st.Verify(testValue.String())
 	if err == nil {
 		t.Fatal("signature signed by unknown signer should not verify")
 	}
 
 	st.keys = append(st.keys, testSigner)
-	_, _, err = st.Verify(testValue.String())
+	_, err = st.Verify(testValue.String())
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
