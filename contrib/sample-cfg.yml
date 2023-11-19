@@ -36,6 +36,7 @@ cookie:
     # sync:
     #   interval: 10s
     #   base-url: http://localhost:1234
+    #   token: this-is-a-very-secret-token
     #   tls:
     #     insecure-skip-verify: true
     #     ca-certificates-data: |

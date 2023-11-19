@@ -113,12 +113,16 @@ func (b *InMemoryBackend) ListRevoked() (list StoredSessionList, err error) {
 	return
 }
 
-func (b *InMemoryBackend) LoadRevocations(list StoredSessionList) (err error) {
+func (b *InMemoryBackend) LoadRevocations(list StoredSessionList) (cnt uint, err error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
+	cnt = 0
 	for _, session := range list {
-		b.revoked[session.ID] = session.Session
+		if _, exists := b.revoked[session.ID]; !exists {
+			b.revoked[session.ID] = session.Session
+			cnt = cnt + 1
+		}
 	}
 	return
 }

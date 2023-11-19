@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -53,14 +54,17 @@ type SignerVerifierConfig struct {
 	Ed25519 *Ed25519Config `yaml:"ed25519"`
 }
 
+type StoreSyncConfig struct {
+	Interval  time.Duration        `yaml:"interval"`
+	BaseURL   string               `yaml:"base-url"`
+	TLSConfig *tlsconfig.TLSConfig `yaml:"tls"`
+	Token     string               `yaml:"token"`
+}
+
 type StoreBackendConfig struct {
-	GCInterval time.Duration `yaml:"gc-interval"`
-	Sync       struct {
-		Interval  time.Duration        `yaml:"interval"`
-		BaseURL   string               `yaml:"base-url"`
-		TLSConfig *tlsconfig.TLSConfig `yaml:"tls"`
-	} `yaml:"sync"`
-	InMemory *InMemoryBackendConfig `yaml:"in-memory"`
+	GCInterval time.Duration          `yaml:"gc-interval"`
+	Sync       *StoreSyncConfig       `yaml:"sync"`
+	InMemory   *InMemoryBackendConfig `yaml:"in-memory"`
 }
 
 type Config struct {
@@ -105,7 +109,7 @@ type StoreBackend interface {
 	Revoke(id ulid.ULID, session Session) error
 	IsRevoked(id ulid.ULID) (bool, error)
 	ListRevoked() (StoredSessionList, error)
-	LoadRevocations(StoredSessionList) error
+	LoadRevocations(StoredSessionList) (uint, error)
 	CollectGarbage() (uint, error)
 }
 
@@ -207,19 +211,75 @@ func (st *Store) runGC(interval time.Duration) {
 	}
 }
 
-func (st *Store) runSync(interval time.Duration, syncBaseURL *url.URL, tlsConfig *tls.Config) {
+func (st *Store) syncRevocations(client *http.Client, syncBaseURL *url.URL, token string) {
+	req, _ := http.NewRequest("GET", syncBaseURL.JoinPath("revocations").String(), nil)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := client.Do(req)
+	if err != nil {
+		st.infoLog.Printf("sync-store: error sending sync request: %v", err)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		st.infoLog.Printf("sync-store: error sending sync request: got HTTP status code %d", resp.StatusCode)
+		return
+	}
+
+	var signed SignedRevocationList
+	err = json.NewDecoder(resp.Body).Decode(&signed)
+	resp.Body.Close()
+	if err != nil {
+		st.infoLog.Printf("sync-store: error parsing sync response: %v", err)
+		return
+	}
+
+	for _, key := range st.keys {
+		if err = key.Verify(signed.Revoked, signed.Signature); err == nil {
+			break
+		}
+	}
+	if err != nil {
+		st.infoLog.Printf("sync-store: revocation list signature is invalid")
+		return
+	}
+
+	var list StoredSessionList
+	if err = json.Unmarshal(signed.Revoked, &list); err != nil {
+		st.infoLog.Printf("sync-store: error parsing sync response: %v", err)
+		return
+	}
+
+	var cnt uint
+	if cnt, err = st.backend.LoadRevocations(list); err != nil {
+		st.infoLog.Printf("sync-state: error loading revocations: %v", err)
+		return
+	}
+	if cnt > 0 {
+		st.dbgLog.Printf("sync-state: successfully synced %d revocations", cnt)
+	}
+}
+
+func (st *Store) runSync(interval time.Duration, syncBaseURL *url.URL, tlsConfig *tls.Config, token string) {
+	client := &http.Client{}
+	switch syncBaseURL.Scheme {
+	case "http":
+		st.infoLog.Printf("sync-store: using insecure url for sync: %s", syncBaseURL.String())
+	case "https":
+		if tlsConfig != nil {
+			client.Transport = &http.Transport{TLSClientConfig: tlsConfig}
+			if tlsConfig.InsecureSkipVerify {
+				st.infoLog.Printf("sync-store: certificate checks for sync are disabled!")
+			}
+		}
+	}
+
 	t := time.NewTicker(interval)
 	st.dbgLog.Printf("cookie-store: running sync every %v", interval)
 	for {
 		if _, ok := <-t.C; !ok {
 			return
 		}
-		// TODO: implement this
-		if tlsConfig == nil {
-			st.infoLog.Printf("cookie-store: syncing revocations from: %s", syncBaseURL.String())
-		} else {
-			st.infoLog.Printf("cookie-store: syncing revocation from: %s (using custom TLS-config)", syncBaseURL.String())
-		}
+		st.syncRevocations(client, syncBaseURL, token)
 	}
 }
 
@@ -230,8 +290,12 @@ func (st *Store) initBackend(conf *Config) (err error) {
 	}
 	var syncBaseURL *url.URL
 	var syncTLSConfig *tls.Config
-	if conf.Backend.Sync.BaseURL != "" {
+	if conf.Backend.Sync != nil {
 		if syncBaseURL, err = url.Parse(conf.Backend.Sync.BaseURL); err != nil {
+			return
+		}
+		if syncBaseURL.Scheme != "http" && syncBaseURL.Scheme != "https" {
+			err = fmt.Errorf("sync base-url '%s' is invalid", conf.Backend.Sync.BaseURL)
 			return
 		}
 		if conf.Backend.Sync.Interval <= time.Second {
@@ -258,8 +322,8 @@ func (st *Store) initBackend(conf *Config) (err error) {
 	}
 
 	go st.runGC(conf.Backend.GCInterval)
-	if syncBaseURL != nil {
-		go st.runSync(conf.Backend.Sync.Interval, syncBaseURL, syncTLSConfig)
+	if conf.Backend.Sync != nil {
+		go st.runSync(conf.Backend.Sync.Interval, syncBaseURL, syncTLSConfig, conf.Backend.Sync.Token)
 	}
 	return
 }
