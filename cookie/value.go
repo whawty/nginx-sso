@@ -109,12 +109,11 @@ func (v *Value) FromString(encoded string) (err error) {
 	return
 }
 
-func (v *Value) Session() (s SessionBase, err error) {
-	err = json.Unmarshal(v.payload[ulidLength:], &s)
-	return
-}
-
-func (v *Value) ID() (id ulid.ULID, err error) {
-	err = id.UnmarshalBinary(v.payload[:ulidLength])
+func (v *Value) Session() (s Session, err error) {
+	err = s.ID.UnmarshalBinary(v.payload[:ulidLength])
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(v.payload[ulidLength:], &s.SessionBase)
 	return
 }

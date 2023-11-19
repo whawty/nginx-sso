@@ -56,19 +56,19 @@ type HandlerContext struct {
 	auth    auth.Backend
 }
 
-func (h *HandlerContext) verifyCookie(c *gin.Context) (string, *cookie.SessionBase, error) {
+func (h *HandlerContext) verifyCookie(c *gin.Context) (*cookie.Session, error) {
 	cookie, err := c.Cookie(h.cookies.Options().Name)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	if cookie == "" {
-		return "", nil, errors.New("no cookie found")
+		return nil, errors.New("no cookie found")
 	}
-	id, session, err := h.cookies.Verify(cookie)
+	session, err := h.cookies.Verify(cookie)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	return id, &session, nil
+	return &session, nil
 }
 
 func (h *HandlerContext) getBasePath(c *gin.Context) string {
@@ -83,7 +83,7 @@ func (h *HandlerContext) getBasePath(c *gin.Context) string {
 }
 
 func (h *HandlerContext) handleAuth(c *gin.Context) {
-	_, session, err := h.verifyCookie(c)
+	session, err := h.verifyCookie(c)
 	if err != nil {
 		c.Data(http.StatusUnauthorized, "text/plain", []byte(err.Error()))
 		return
@@ -96,7 +96,7 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 	login := h.conf.Login
 	login.BasePath = h.getBasePath(c)
 
-	_, session, err := h.verifyCookie(c)
+	session, err := h.verifyCookie(c)
 	if err == nil {
 		// TODO: follow redir?
 		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
@@ -141,7 +141,7 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 		return
 	}
 
-	value, opts, err := h.cookies.New(cookie.SessionBase{Username: username})
+	value, opts, err := h.cookies.New(username)
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
 			"login":    login,
@@ -164,9 +164,9 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleLogout(c *gin.Context) {
-	id, session, err := h.verifyCookie(c)
+	session, err := h.verifyCookie(c)
 	if err == nil {
-		if err = h.cookies.Revoke(id, *session); err != nil {
+		if err = h.cookies.Revoke(*session); err != nil {
 			// TODO: render error page!
 			c.JSON(http.StatusInternalServerError, WebError{err.Error()})
 			return
@@ -182,7 +182,7 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleSessions(c *gin.Context) {
-	_, session, err := h.verifyCookie(c)
+	session, err := h.verifyCookie(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, WebError{err.Error()})
 		return

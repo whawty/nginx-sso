@@ -107,7 +107,7 @@ func TestValueFromString(t *testing.T) {
 
 	encoded := "ABEiM0RVZneImaq7zN3u_3sidSI6InRlc3QiLCJlIjoxMDAwfQ.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
 	expectedSignature := []byte("this-is-not-a-signature")
-	expectedSession := SessionBase{Username: "test", Expires: 1000}
+	expectedSessionBase := SessionBase{Username: "test", Expires: 1000}
 	expectedID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
 
 	var v Value
@@ -123,15 +123,10 @@ func TestValueFromString(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if !reflect.DeepEqual(s, expectedSession) {
-		t.Fatalf("decoding cookie session failed, expected: '%+v', got '%+v'", expectedSession, s)
+	if !reflect.DeepEqual(s.SessionBase, expectedSessionBase) {
+		t.Fatalf("decoding cookie session failed, expected: '%+v', got '%+v'", expectedSessionBase, s.SessionBase)
 	}
-
-	id, err := v.ID()
-	if err != nil {
-		t.Fatal("unexpected error:", err)
-	}
-	if id.Compare(expectedID) != 0 {
-		t.Fatalf("decoding cookie id failed, expected: '%v', got '%v'", expectedID, id)
+	if s.ID.Compare(expectedID) != 0 {
+		t.Fatalf("decoding cookie id failed, expected: '%v', got '%v'", expectedID, s.ID)
 	}
 }

@@ -55,7 +55,7 @@ func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
 	return m, nil
 }
 
-func (b *InMemoryBackend) Save(id ulid.ULID, session SessionBase) error {
+func (b *InMemoryBackend) Save(session Session) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -64,10 +64,10 @@ func (b *InMemoryBackend) Save(id ulid.ULID, session SessionBase) error {
 		sessions = make(InMemorySessionMap)
 		b.sessions[session.Username] = sessions
 	}
-	if _, exists = sessions[id]; exists {
-		return fmt.Errorf("session '%v' already exists!", id)
+	if _, exists = sessions[session.ID]; exists {
+		return fmt.Errorf("session '%v' already exists!", session.ID)
 	}
-	sessions[id] = session
+	sessions[session.ID] = session.SessionBase
 	return nil
 }
 
@@ -87,11 +87,11 @@ func (b *InMemoryBackend) ListUser(username string) (list SessionList, err error
 	return
 }
 
-func (b *InMemoryBackend) Revoke(id ulid.ULID, session SessionBase) error {
+func (b *InMemoryBackend) Revoke(session Session) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	b.revoked[id] = session
+	b.revoked[session.ID] = session.SessionBase
 	return nil
 }
 
