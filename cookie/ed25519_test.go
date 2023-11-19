@@ -113,14 +113,14 @@ func TestLoadEd25519PublicKey(t *testing.T) {
 
 	invalidVectors := []string{testNoPemBlocks, testInvalidPubB64Pem, testInvalidPubKeyPem, testPubKeyEcDSA224Pem, testPrivKeyEd25519Pem}
 	for _, vector := range invalidVectors {
-		conf.PubKey = &vector
+		conf.PubKeyData = &vector
 		_, err = loadEd25519PublicKey(conf)
 		if err == nil {
 			t.Fatalf("loading public key from invalid key config should fail: %s", vector)
 		}
 	}
 
-	conf.PubKey = &testPubKeyEd25519Pem
+	conf.PubKeyData = &testPubKeyEd25519Pem
 	pub, err = loadEd25519PublicKey(conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -151,14 +151,14 @@ func TestLoadEd25519Keys(t *testing.T) {
 
 	invalidVectors := []string{testNoPemBlocks, testInvalidPrivB64Pem, testInvalidPrivKeyPem, testPrivKeyEcDSA224Pem, testPubKeyEd25519Pem}
 	for _, vector := range invalidVectors {
-		conf.PrivKey = &vector
+		conf.PrivKeyData = &vector
 		_, _, err = loadEd25519Keys(conf)
 		if err == nil {
 			t.Fatalf("loading private key from invalid key config should fail: %s", vector)
 		}
 	}
 
-	conf.PrivKey = &testPrivKeyEd25519Pem
+	conf.PrivKeyData = &testPrivKeyEd25519Pem
 	priv, pub, err = loadEd25519Keys(conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -192,16 +192,16 @@ func TestNewEd25519SignerVerifier(t *testing.T) {
 
 	keyFilePath := "/path/to/key.pem"
 
-	conf.PrivKey = &testPrivKeyEd25519Pem
+	conf.PrivKeyData = &testPrivKeyEd25519Pem
 	conf.PrivKeyFile = &keyFilePath
 	_, err = NewEd25519SignerVerifier(testContext, conf)
 	if err == nil {
 		t.Fatal("initializing Ed25519 Signer/Verifier with both priv-key and priv-key-file should fail")
 	}
 
-	conf.PrivKey = nil
+	conf.PrivKeyData = nil
 	conf.PrivKeyFile = nil
-	conf.PubKey = &testPubKeyEd25519Pem
+	conf.PubKeyData = &testPubKeyEd25519Pem
 	conf.PubKeyFile = &keyFilePath
 
 	_, err = NewEd25519SignerVerifier(testContext, conf)
@@ -209,9 +209,9 @@ func TestNewEd25519SignerVerifier(t *testing.T) {
 		t.Fatal("initializing Ed25519 Signer/Verifier with both pub-key and pub-key-file should fail")
 	}
 
-	conf.PrivKey = nil
+	conf.PrivKeyData = nil
 	conf.PrivKeyFile = nil
-	conf.PubKey = &testPubKeyEd25519Pem
+	conf.PubKeyData = &testPubKeyEd25519Pem
 	conf.PubKeyFile = nil
 	_, err = NewEd25519SignerVerifier("", conf)
 	if err == nil {
@@ -221,7 +221,7 @@ func TestNewEd25519SignerVerifier(t *testing.T) {
 
 func TestEd25519CanSign(t *testing.T) {
 	conf := &Ed25519Config{}
-	conf.PubKey = &testPubKeyEd25519Pem
+	conf.PubKeyData = &testPubKeyEd25519Pem
 	s, err := NewEd25519SignerVerifier(testContext, conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -230,8 +230,8 @@ func TestEd25519CanSign(t *testing.T) {
 		t.Fatal("initializing Ed25519 Signer/Verifier with Public-Key should not allow signing")
 	}
 
-	conf.PubKey = nil
-	conf.PrivKey = &testPrivKeyEd25519Pem
+	conf.PubKeyData = nil
+	conf.PrivKeyData = &testPrivKeyEd25519Pem
 	s, err = NewEd25519SignerVerifier(testContext, conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -243,7 +243,7 @@ func TestEd25519CanSign(t *testing.T) {
 
 func TestEd25519Sign(t *testing.T) {
 	conf := &Ed25519Config{}
-	conf.PubKey = &testPubKeyEd25519Pem
+	conf.PubKeyData = &testPubKeyEd25519Pem
 	s, err := NewEd25519SignerVerifier(testContext, conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -253,8 +253,8 @@ func TestEd25519Sign(t *testing.T) {
 		t.Fatal("trying to sign using an Ed25519 Signer/Verifier with Public-Key should return an error")
 	}
 
-	conf.PubKey = nil
-	conf.PrivKey = &testPrivKeyEd25519Pem
+	conf.PubKeyData = nil
+	conf.PrivKeyData = &testPrivKeyEd25519Pem
 	s, err = NewEd25519SignerVerifier(testContext, conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -271,7 +271,7 @@ func TestEd25519Sign(t *testing.T) {
 
 func TestEd25519Verify(t *testing.T) {
 	conf := &Ed25519Config{}
-	conf.PubKey = &testPubKeyEd25519Pem
+	conf.PubKeyData = &testPubKeyEd25519Pem
 	s, err := NewEd25519SignerVerifier(testContext, conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -289,8 +289,8 @@ func TestEd25519Verify(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	conf.PubKey = nil
-	conf.PrivKey = &testPrivKeyEd25519Pem
+	conf.PubKeyData = nil
+	conf.PrivKeyData = &testPrivKeyEd25519Pem
 	s, err = NewEd25519SignerVerifier(testContext, conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)

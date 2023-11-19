@@ -64,7 +64,7 @@ func TestNewStore(t *testing.T) {
 		t.Fatal("initializing store with corrupt keys config entries should fail")
 	}
 
-	ed25519Conf = &Ed25519Config{PubKey: &testPubKeyEd25519Pem}
+	ed25519Conf = &Ed25519Config{PubKeyData: &testPubKeyEd25519Pem}
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
@@ -83,7 +83,7 @@ func TestNewStore(t *testing.T) {
 		t.Fatal("initializing store with verify-only key must not have signer attribute")
 	}
 
-	ed25519Conf = &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}
+	ed25519Conf = &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
@@ -98,8 +98,8 @@ func TestNewStore(t *testing.T) {
 
 func TestMultipleKeys(t *testing.T) {
 	cookieName := "some-prefix"
-	ed25519ConfVerifyOnly := &Ed25519Config{PubKey: &testPubKeyEd25519Pem}
-	ed25519ConfSignAndVerify := &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}
+	ed25519ConfVerifyOnly := &Ed25519Config{PubKeyData: &testPubKeyEd25519Pem}
+	ed25519ConfSignAndVerify := &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}
 
 	conf := &Config{Name: cookieName}
 	conf.Keys = []SignerVerifierConfig{
@@ -128,7 +128,7 @@ func TestMultipleKeys(t *testing.T) {
 func TestNew(t *testing.T) {
 	conf := &Config{}
 	conf.Keys = []SignerVerifierConfig{
-		SignerVerifierConfig{Name: "verify-only", Ed25519: &Ed25519Config{PubKey: &testPubKeyEd25519Pem}},
+		SignerVerifierConfig{Name: "verify-only", Ed25519: &Ed25519Config{PubKeyData: &testPubKeyEd25519Pem}},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
 	st, err := NewStore(conf, nil, nil)
@@ -143,7 +143,7 @@ func TestNew(t *testing.T) {
 	}
 
 	conf.Keys = []SignerVerifierConfig{
-		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
+		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
 	}
 	st, err = NewStore(conf, nil, nil)
 	if err != nil {
@@ -187,7 +187,7 @@ func TestNew(t *testing.T) {
 func TestVerify(t *testing.T) {
 	conf := &Config{}
 	conf.Keys = []SignerVerifierConfig{
-		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
+		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
 	st, err := NewStore(conf, nil, nil)
@@ -269,7 +269,7 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	conf.Name = "some-prefix"
 	conf.Expire = time.Hour
 	conf.Keys = []SignerVerifierConfig{
-		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKey: &testPrivKeyEd25519Pem}},
+		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
 	st, err := NewStore(conf, nil, nil)

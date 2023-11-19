@@ -40,10 +40,10 @@ import (
 )
 
 type Ed25519Config struct {
-	PrivKey     *string `yaml:"private-key"`
-	PrivKeyFile *string `yaml:"private-key-file"`
-	PubKey      *string `yaml:"public-key"`
-	PubKeyFile  *string `yaml:"public-key-file"`
+	PrivKeyFile *string `yaml:"private-key"`
+	PrivKeyData *string `yaml:"private-key-data"`
+	PubKeyFile  *string `yaml:"public-key"`
+	PubKeyData  *string `yaml:"public-key-data"`
 }
 
 type Ed25519SignerVerifier struct {
@@ -64,8 +64,8 @@ func loadFile(filename string) ([]byte, error) {
 
 func loadEd25519PublicKey(conf *Ed25519Config) (ed25519.PublicKey, error) {
 	var keyPem []byte
-	if conf.PubKey != nil {
-		keyPem = []byte(*conf.PubKey)
+	if conf.PubKeyData != nil {
+		keyPem = []byte(*conf.PubKeyData)
 	}
 	if conf.PubKeyFile != nil {
 		var err error
@@ -94,8 +94,8 @@ func loadEd25519PublicKey(conf *Ed25519Config) (ed25519.PublicKey, error) {
 
 func loadEd25519Keys(conf *Ed25519Config) (ed25519.PrivateKey, ed25519.PublicKey, error) {
 	var keyPem []byte
-	if conf.PrivKey != nil {
-		keyPem = []byte(*conf.PrivKey)
+	if conf.PrivKeyData != nil {
+		keyPem = []byte(*conf.PrivKeyData)
 	}
 	if conf.PrivKeyFile != nil {
 		var err error
@@ -128,11 +128,11 @@ func NewEd25519SignerVerifier(context string, conf *Ed25519Config) (*Ed25519Sign
 	if context == "" {
 		return nil, fmt.Errorf("context must not be empty")
 	}
-	if conf.PrivKey != nil && conf.PrivKeyFile != nil {
-		return nil, fmt.Errorf("'private-key' and 'public-key-file' are mutually exclusive")
+	if conf.PrivKeyData != nil && conf.PrivKeyFile != nil {
+		return nil, fmt.Errorf("'private-key' and 'public-key-data' are mutually exclusive")
 	}
-	if conf.PubKey != nil && conf.PubKeyFile != nil {
-		return nil, fmt.Errorf("'public-key' and 'public-key-file' are mutually exclusive")
+	if conf.PubKeyData != nil && conf.PubKeyFile != nil {
+		return nil, fmt.Errorf("'public-key' and 'public-key-data' are mutually exclusive")
 	}
 
 	priv, pub, err := loadEd25519Keys(conf)

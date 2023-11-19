@@ -12,25 +12,25 @@ cookie:
   - name: 2023-11
     ed25519:
       ## generate with `openssl genpkey -algorithm ED25519`
-      private-key: |
+      private-key-data: |
         -----BEGIN PRIVATE KEY-----
         MC4CAQAwBQYDK2VwBCIEIIgITVt9BRor5Dn2v7rQu2I8siicIUGr7+QS9PqNSSXk
         -----END PRIVATE KEY-----
   # - name: 2023-11
   #   ed25519:
   #     ## generate with `openssl pkey -pubout` and paste in pem-encoded private key
-  #     public-key: |
+  #     public-key-data: |
   #       -----BEGIN PUBLIC KEY-----
   #       MCowBQYDK2VwAyEA7dAVNSCBGIBHsCDX0z1qOsMIrErkgLbgybWW17YkleU=
   #       -----END PUBLIC KEY-----
   # - name: 2022-11
   #   ed25519:
   #     ## generate with `openssl genpkey -algorithm ED25519 -out ./contrib/bar_ed25519_priv.pem`
-  #     private-key-file: ./contrib/bar_ed25519_priv.pem
+  #     private-key: ./contrib/bar_ed25519_priv.pem
   # - name: 2022-11
   #   ed25519:
   #     ## generate with `openssl pkey -in ./contrib/bar_ed25519_priv.pem -pubout -out ./contrib/bar_ed25519_pub.pem`
-  #     public-key-file: ./contrib/bar_ed25519_pub.pem
+  #     public-key: ./contrib/bar_ed25519_pub.pem
   backend:
     # gc-interval: 5m
     # sync:
@@ -38,14 +38,14 @@ cookie:
     #   base-url: http://localhost:1234
     #   tls:
     #     insecure-skip-verify: true
-    #     ca-certificates: |
+    #     ca-certificates-data: |
     #       -----BEGIN CERTIFICATE-----
     #       ...
     #       -----END CERTIFICATE-----
     #       -----BEGIN CERTIFICATE-----
     #       ...
     #       -----END CERTIFICATE-----
-    #     ca-certificate-files:
+    #     ca-certificates:
     #     - root-ca.pem
     in-memory: {}
 
@@ -60,30 +60,30 @@ auth:
   #     url: http://127.0.0.1:2345/api/update
   #     tls:
   #       insecure-skip-verify: true
-  #       ca-certificates: |
+  #       ca-certificates-data: |
   #         -----BEGIN CERTIFICATE-----
   #         ...
   #         -----END CERTIFICATE-----
   #         -----BEGIN CERTIFICATE-----
   #         ...
   #         -----END CERTIFICATE-----
-  #       ca-certificate-files:
+  #       ca-certificates:
   #       - root-ca.pem
   # ldap:
   #   servers:
   #   - ldaps://ldap1.example.com
   #   - ldaps://ldap2.example.com
+  #   start-tls: false
   #   tls:
-  #     start-tls: false
   #     insecure-skip-verify: true
-  #     ca-certificates: |
+  #     ca-certificates-data: |
   #       -----BEGIN CERTIFICATE-----
   #       ...
   #       -----END CERTIFICATE-----
   #       -----BEGIN CERTIFICATE-----
   #       ...
   #       -----END CERTIFICATE-----
-  #     ca-certificate-files:
+  #     ca-certificates:
   #     - root-ca.pem
   #### directly bind to this DN, {0} will be replaced by the username, leave empty to search the users DN using the parameters below
   #   user-dn-template: "uid={0},ou=People,dc=example,dc=com"
@@ -110,7 +110,15 @@ web:
 
   # tls:
   #   certificate: "/path/to/server-crt.pem"
+  #   certificate-data: |
+  #     -----BEGIN CERTIFICATE-----
+  #     ...
+  #     -----END CERTIFICATE-----
   #   certificate-key:  "/path/to/server-key.pem"
+  #   certificate-key-data: |
+  #     -----BEGIN RSA PRIVATE KEY-----
+  #     ...
+  #     -----END RSA PRIVATE KEY-----
   #   min-protocol-version: "TLSv1.2"
   #   # max-protocol-version: "TLSv1.3"
   #   ciphers:

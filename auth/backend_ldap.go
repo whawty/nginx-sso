@@ -37,17 +37,19 @@ import (
 	"strings"
 
 	"github.com/go-ldap/ldap/v3"
+	"github.com/spreadspace/tlsconfig"
 )
 
 type LDAPConfig struct {
-	Servers          []string         `yaml:"servers"`
-	RootDN           string           `yaml:"root-dn"`
-	ManagerDN        string           `yaml:"manager-dn"`
-	ManagerPassword  string           `yaml:"manager-password"`
-	UserSearchBase   string           `yaml:"user-search-base"`
-	UserSearchFilter string           `yaml:"user-search-filter"`
-	UserDNTemplate   string           `yaml:"user-dn-template"`
-	TLS              *TLSClientConfig `yaml:"tls"`
+	Servers          []string             `yaml:"servers"`
+	RootDN           string               `yaml:"root-dn"`
+	ManagerDN        string               `yaml:"manager-dn"`
+	ManagerPassword  string               `yaml:"manager-password"`
+	UserSearchBase   string               `yaml:"user-search-base"`
+	UserSearchFilter string               `yaml:"user-search-filter"`
+	UserDNTemplate   string               `yaml:"user-dn-template"`
+	StartTLS         bool                 `yaml:"start-tls"`
+	TLS              *tlsconfig.TLSConfig `yaml:"tls"`
 }
 
 type LDAPBackend struct {
@@ -117,7 +119,7 @@ func (b *LDAPBackend) authenticate(server, username, password string) (bool, err
 		}
 		srvTLSConf = b.tlsConf.Clone()
 		srvTLSConf.ServerName = sn
-		if b.conf.TLS.StartTLS == false {
+		if b.conf.StartTLS == false {
 			opts = append(opts, ldap.DialWithTLSConfig(srvTLSConf))
 		}
 	}
@@ -128,7 +130,7 @@ func (b *LDAPBackend) authenticate(server, username, password string) (bool, err
 	}
 	defer l.Close()
 
-	if srvTLSConf != nil && b.conf.TLS.StartTLS {
+	if srvTLSConf != nil && b.conf.StartTLS {
 		if err = l.StartTLS(srvTLSConf); err != nil {
 			return true, err
 		}
