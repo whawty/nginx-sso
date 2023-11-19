@@ -41,6 +41,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/spreadspace/tlsconfig"
 	"github.com/whawty/auth/store"
 )
 
@@ -52,8 +53,8 @@ type WhawtyAuthConfig struct {
 	ConfigFile     string `yaml:"store"`
 	AutoReload     bool   `yaml:"autoreload"`
 	RemoteUpgrades *struct {
-		URL string           `yaml:"url"`
-		TLS *TLSClientConfig `yaml:"tls"`
+		URL string               `yaml:"url"`
+		TLS *tlsconfig.TLSConfig `yaml:"tls"`
 	} `yaml:"remote-upgrades"`
 }
 

@@ -31,10 +31,7 @@
 package auth
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -42,54 +39,12 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-func loadFile(filename string) ([]byte, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return io.ReadAll(f)
-}
-
 func serverNameFromUrl(server string) (string, error) {
 	u, err := url.Parse(server)
 	if err != nil {
 		return "", fmt.Errorf("server url '%s' is invalid", server)
 	}
 	return u.Hostname(), nil
-}
-
-type TLSClientConfig struct {
-	StartTLS           bool     `yaml:"start-tls"`
-	InsecureSkipVerify bool     `yaml:"insecure-skip-verify"`
-	CACertificates     string   `yaml:"ca-certificates"`
-	CACertificateFiles []string `yaml:"ca-certificate-files"`
-}
-
-func (t TLSClientConfig) ToGoTLSConfig() (*tls.Config, error) {
-	cfg := &tls.Config{}
-
-	cfg = &tls.Config{}
-	cfg.InsecureSkipVerify = t.InsecureSkipVerify
-	cfg.RootCAs = x509.NewCertPool()
-	if t.CACertificates != "" {
-		if ok := cfg.RootCAs.AppendCertsFromPEM([]byte(t.CACertificates)); !ok {
-			return nil, fmt.Errorf("no certificates found in ca-certificates content")
-		}
-	}
-	for _, cert := range t.CACertificateFiles {
-		pemData, err := loadFile(cert)
-		if err != nil {
-			return nil, fmt.Errorf("loading ca-certificate file failed: %v", err)
-		}
-
-		ok := cfg.RootCAs.AppendCertsFromPEM(pemData)
-		if !ok {
-			return nil, fmt.Errorf("no ca-certificates found in file '%s'", cert)
-		}
-	}
-	return cfg, nil
 }
 
 type watchFileErrorCB func(error)

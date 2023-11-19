@@ -1,0 +1,17 @@
+cookie:
+  keys:
+  - name: 2023-11
+    ed25519:
+      public-key-data: |
+        -----BEGIN PUBLIC KEY-----
+        MCowBQYDK2VwAyEA7dAVNSCBGIBHsCDX0z1qOsMIrErkgLbgybWW17YkleU=
+        -----END PUBLIC KEY-----
+  backend:
+    sync:
+      interval: 5s
+      base-url: http://localhost:1234
+      token: this-is-a-very-secret-token
+    in-memory: {}
+
+web:
+  listen: "127.0.0.1:2345"

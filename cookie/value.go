@@ -31,29 +31,56 @@
 package cookie
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/oklog/ulid/v2"
 )
 
-type Payload struct {
+const (
+	ulidLength = len(ulid.ULID{})
+)
+
+type Session struct {
 	Username string `json:"u"`
 	Expires  int64  `json:"e"`
 }
 
-func (p *Payload) Encode() []byte {
-	payload, _ := json.Marshal(p)
-	return payload
+func (s *Session) SetExpiry(lifetime time.Duration) {
+	s.Expires = time.Now().Add(lifetime).Unix()
 }
 
-func (p *Payload) Decode(payload []byte) error {
-	return json.Unmarshal(payload, &p)
+func (s *Session) IsExpired() bool {
+	return time.Unix(s.Expires, 0).Before(time.Now())
 }
 
 type Value struct {
 	payload   []byte
 	signature []byte
+}
+
+func MakeValue(id ulid.ULID, s Session) (v *Value, err error) {
+	payload := make([]byte, ulidLength, 128)
+
+	if err = id.MarshalBinaryTo(payload); err != nil {
+		return
+	}
+
+	b := bytes.NewBuffer(payload)
+	var encoded []byte
+	if encoded, err = json.Marshal(s); err != nil {
+		return
+	}
+	if err = json.Compact(b, encoded); err != nil {
+		return
+	}
+
+	v = &Value{payload: b.Bytes()}
+	return
 }
 
 func (v *Value) String() string {
@@ -72,9 +99,22 @@ func (v *Value) FromString(encoded string) (err error) {
 	if err != nil {
 		return fmt.Errorf("invalid cookie value: %v", err)
 	}
+	if len(v.payload) <= ulidLength {
+		return fmt.Errorf("invalid cookie value: payload is too short")
+	}
 	v.signature, err = base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
 		return fmt.Errorf("invalid cookie value: %v", err)
 	}
+	return
+}
+
+func (v *Value) Session() (s Session, err error) {
+	err = json.Unmarshal(v.payload[ulidLength:], &s)
+	return
+}
+
+func (v *Value) ID() (id ulid.ULID, err error) {
+	err = id.UnmarshalBinary(v.payload[:ulidLength])
 	return
 }

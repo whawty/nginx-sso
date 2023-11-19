@@ -46,25 +46,29 @@ import (
 	"gitlab.com/go-box/pongo2gin/v6"
 )
 
+type WebError struct {
+	Error string `json:"error"`
+}
+
 type HandlerContext struct {
 	conf    *WebConfig
-	cookies *cookie.Controller
+	cookies *cookie.Store
 	auth    auth.Backend
 }
 
-func (h *HandlerContext) verifyCookie(c *gin.Context) (*cookie.Payload, error) {
+func (h *HandlerContext) verifyCookie(c *gin.Context) (string, *cookie.Session, error) {
 	cookie, err := c.Cookie(h.cookies.Options().Name)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	if cookie == "" {
-		return nil, errors.New("no cookie found")
+		return "", nil, errors.New("no cookie found")
 	}
-	session, err := h.cookies.Verify(cookie)
+	id, session, err := h.cookies.Verify(cookie)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	return &session, nil
+	return id, &session, nil
 }
 
 func (h *HandlerContext) getBasePath(c *gin.Context) string {
@@ -79,7 +83,7 @@ func (h *HandlerContext) getBasePath(c *gin.Context) string {
 }
 
 func (h *HandlerContext) handleAuth(c *gin.Context) {
-	session, err := h.verifyCookie(c)
+	_, session, err := h.verifyCookie(c)
 	if err != nil {
 		c.Data(http.StatusUnauthorized, "text/plain", []byte(err.Error()))
 		return
@@ -92,8 +96,8 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 	login := h.conf.Login
 	login.BasePath = h.getBasePath(c)
 
-	session, err := h.verifyCookie(c)
-	if err == nil && session != nil {
+	_, session, err := h.verifyCookie(c)
+	if err == nil {
 		// TODO: follow redir?
 		c.HTML(http.StatusOK, "logged-in.htmpl", pongo2.Context{
 			"login":    login,
@@ -137,7 +141,7 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 		return
 	}
 
-	value, opts, err := h.cookies.Mint(cookie.Payload{Username: username})
+	value, opts, err := h.cookies.New(cookie.Session{Username: username})
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
 			"login":    login,
@@ -160,6 +164,14 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleLogout(c *gin.Context) {
+	id, session, err := h.verifyCookie(c)
+	if err == nil {
+		if err = h.cookies.Revoke(id, *session); err != nil {
+			// TODO: render error page!
+			c.JSON(http.StatusInternalServerError, WebError{err.Error()})
+			return
+		}
+	}
 	opts := h.cookies.Options()
 	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
 	redirect, _ := c.GetQuery("redir")
@@ -169,7 +181,52 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, redirect)
 }
 
-func runWeb(config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (err error) {
+func (h *HandlerContext) handleSessions(c *gin.Context) {
+	_, session, err := h.verifyCookie(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, WebError{err.Error()})
+		return
+	}
+	sessions, err := h.cookies.ListUser(session.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, WebError{err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, sessions)
+}
+
+func (h *HandlerContext) handleRevocations(c *gin.Context) {
+	auth_header := c.GetHeader("Authorization")
+	if auth_header == "" {
+		c.JSON(http.StatusUnauthorized, WebError{"no authorization header found"})
+		return
+	}
+	auth_parts := strings.SplitN(auth_header, " ", 2)
+	if len(auth_parts) != 2 || auth_parts[0] != "Bearer" {
+		c.JSON(http.StatusUnauthorized, WebError{"authorization header is invalid"})
+		return
+	}
+	authenticated := false
+	for _, token := range h.conf.Revocations.Tokens {
+		if token == auth_parts[1] {
+			authenticated = true
+			break
+		}
+	}
+	if !authenticated {
+		c.JSON(http.StatusUnauthorized, WebError{"unauthorized token"})
+		return
+	}
+
+	revocations, err := h.cookies.ListRevoked()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, WebError{err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, revocations)
+}
+
+func runWeb(config *WebConfig, cookies *cookie.Store, auth auth.Backend) (err error) {
 	if config.Listen == "" {
 		config.Listen = ":http"
 	}
@@ -203,6 +260,8 @@ func runWeb(config *WebConfig, cookies *cookie.Controller, auth auth.Backend) (e
 	r.GET("/login", h.handleLoginGet)
 	r.POST("/login", h.handleLoginPost)
 	r.GET("/logout", h.handleLogout)
+	r.GET("/sessions", h.handleSessions)
+	r.GET("/revocations", h.handleRevocations)
 
 	listener, err := net.Listen("tcp", config.Listen)
 	if err != nil {

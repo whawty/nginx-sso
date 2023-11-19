@@ -34,47 +34,36 @@ import (
 	"bytes"
 	"reflect"
 	"testing"
+
+	"github.com/oklog/ulid/v2"
 )
 
-func TestPayloadEncode(t *testing.T) {
-	var p Payload
-	p.Username = "test"
-	p.Expires = 1000
+func TestMakeValue(t *testing.T) {
+	testID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
+	testSession := Session{Username: "test", Expires: 1000}
+	testSessionEncoded := []byte("{\"u\":\"test\",\"e\":1000}")
+	expectedPayload := append(testID.Bytes(), testSessionEncoded...)
 
-	expected := []byte("{\"u\":\"test\",\"e\":1000}")
-	encoded := p.Encode()
-	if bytes.Compare(expected, encoded) != 0 {
-		t.Fatalf("encoding cookie payload failed, expected: '%s', got '%s'", expected, encoded)
-	}
-}
-
-func TestPayloadDecode(t *testing.T) {
-	encoded := []byte("{\"u\":\"test\",\"e\":1000}")
-	var expected Payload
-	expected.Username = "test"
-	expected.Expires = 1000
-
-	var decoded Payload
-	err := decoded.Decode(encoded)
+	v, err := MakeValue(testID, testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if !reflect.DeepEqual(decoded, expected) {
-		t.Fatalf("decoding cookie payload failed, expected: '%+v', got '%+v'", expected, decoded)
+	if bytes.Compare(v.payload, expectedPayload) != 0 {
+		t.Fatalf("encoding cookie payload failed, expected: '%s', got '%s'", expectedPayload, v.payload)
 	}
 }
 
 func TestValueToString(t *testing.T) {
-	var p Payload
-	p.Username = "test"
-	p.Expires = 1000
-
-	var v Value
-	v.payload = p.Encode()
+	testID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
+	testSession := Session{Username: "test", Expires: 1000}
+	v, err := MakeValue(testID, testSession)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 	v.signature = []byte("this-is-not-a-signature")
 
 	encoded := v.String()
-	expected := "eyJ1IjoidGVzdCIsImUiOjEwMDB9.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
+	expected := "ABEiM0RVZneImaq7zN3u_3sidSI6InRlc3QiLCJlIjoxMDAwfQ.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
 
 	if expected != encoded {
 		t.Fatalf("encoding cookie value failed, expected: '%s', got '%s'", expected, encoded)
@@ -88,18 +77,19 @@ func TestValueFromString(t *testing.T) {
 	}{
 		{"", false},
 		{"foo", false},
-		{"", false},
 		{".", false},
 		{".bar", false},
 		{"foo.", false},
-		{"foo.bar", true},
-		{"foo.bar.blub", false},
-		{"foo/bar.blub", false},
-		{"foo+bar.blub", false},
-		{"foo.bar/blub", false},
-		{"foo.bar+blub", false},
-		{"foo.bar=", false},
-		{"foo=.bar", false},
+		{"foo.bar", false},
+		{"fooooooooooooooooooooo.bar", false},
+		{"foooooooooooooooooooooo.bar", true},
+		{"foooooooooooooooooooooo.bar.blub", false},
+		{"foooooooooooooooooooooo/bar.blub", false},
+		{"foooooooooooooooooooooo+bar.blub", false},
+		{"foooooooooooooooooooooo.bar/blub", false},
+		{"foooooooooooooooooooooo.bar+blub", false},
+		{"foooooooooooooooooooooo.bar=", false},
+		{"foooooooooooooooooooooo=.bar", false},
 	}
 	for _, vector := range vectors {
 		var v Value
@@ -115,9 +105,10 @@ func TestValueFromString(t *testing.T) {
 		}
 	}
 
-	encoded := "eyJ1IjoidGVzdCIsImUiOjEwMDB9.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
+	encoded := "ABEiM0RVZneImaq7zN3u_3sidSI6InRlc3QiLCJlIjoxMDAwfQ.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
 	expectedSignature := []byte("this-is-not-a-signature")
-	expectedPayload := Payload{Username: "test", Expires: 1000}
+	expectedSession := Session{Username: "test", Expires: 1000}
+	expectedID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
 
 	var v Value
 	err := v.FromString(encoded)
@@ -125,14 +116,22 @@ func TestValueFromString(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 	if bytes.Compare(v.signature, expectedSignature) != 0 {
-		t.Fatalf("encoding cookie payload failed, expected: '%s', got '%s'", expectedSignature, v.signature)
+		t.Fatalf("encoding cookie session failed, expected: '%s', got '%s'", expectedSignature, v.signature)
 	}
-	var p Payload
-	err = p.Decode(v.payload)
+
+	s, err := v.Session()
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if !reflect.DeepEqual(p, expectedPayload) {
-		t.Fatalf("decoding cookie payload failed, expected: '%+v', got '%+v'", expectedPayload, p)
+	if !reflect.DeepEqual(s, expectedSession) {
+		t.Fatalf("decoding cookie session failed, expected: '%+v', got '%+v'", expectedSession, s)
+	}
+
+	id, err := v.ID()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if id.Compare(expectedID) != 0 {
+		t.Fatalf("decoding cookie id failed, expected: '%v', got '%v'", expectedID, id)
 	}
 }
