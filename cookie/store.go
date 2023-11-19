@@ -100,11 +100,12 @@ type SignedRevocationList struct {
 }
 
 type StoreBackend interface {
-	Save(username string, id ulid.ULID, session Session) error
+	Save(id ulid.ULID, session Session) error
 	ListUser(username string) (StoredSessionList, error)
-	Revoke(username string, id ulid.ULID) error
+	Revoke(id ulid.ULID, session Session) error
 	IsRevoked(id ulid.ULID) (bool, error)
 	ListRevoked() (StoredSessionList, error)
+	LoadRevocations(StoredSessionList) error
 	CollectGarbage() (uint, error)
 }
 
@@ -284,7 +285,7 @@ func (st *Store) New(s Session) (value string, opts Options, err error) {
 		return
 	}
 
-	if err = st.backend.Save(s.Username, id, s); err != nil {
+	if err = st.backend.Save(id, s); err != nil {
 		return
 	}
 	st.dbgLog.Printf("successfully generated new session('%v'): %+v", id, s)
@@ -344,12 +345,12 @@ func (st *Store) ListUser(username string) (StoredSessionList, error) {
 	return st.backend.ListUser(username)
 }
 
-func (st *Store) Revoke(username, id string) error {
+func (st *Store) Revoke(id string, session Session) error {
 	toRevoke, err := ulid.ParseStrict(id)
 	if err != nil {
 		return err
 	}
-	if err = st.backend.Revoke(username, toRevoke); err != nil {
+	if err = st.backend.Revoke(toRevoke, session); err != nil {
 		return err
 	}
 	st.dbgLog.Printf("successfully revoked session('%v')", id)

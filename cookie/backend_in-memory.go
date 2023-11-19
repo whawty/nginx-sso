@@ -55,14 +55,14 @@ func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
 	return m, nil
 }
 
-func (b *InMemoryBackend) Save(username string, id ulid.ULID, session Session) error {
+func (b *InMemoryBackend) Save(id ulid.ULID, session Session) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	sessions, exists := b.sessions[username]
+	sessions, exists := b.sessions[session.Username]
 	if !exists {
 		sessions = make(InMemorySessionList)
-		b.sessions[username] = sessions
+		b.sessions[session.Username] = sessions
 	}
 	if _, exists = sessions[id]; exists {
 		return fmt.Errorf("session '%v' already exists!", id)
@@ -80,24 +80,17 @@ func (b *InMemoryBackend) ListUser(username string) (list StoredSessionList, err
 		return
 	}
 	for id, session := range sessions {
-		list = append(list, StoredSession{ID: id, Session: session})
+		if _, revoked := b.revoked[id]; !revoked {
+			list = append(list, StoredSession{ID: id, Session: session})
+		}
 	}
 	return
 }
 
-func (b *InMemoryBackend) Revoke(username string, id ulid.ULID) error {
+func (b *InMemoryBackend) Revoke(id ulid.ULID, session Session) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	sessions, exists := b.sessions[username]
-	if !exists {
-		return fmt.Errorf("session '%v' does not exist", id)
-	}
-	session, exists := sessions[id]
-	if !exists {
-		return fmt.Errorf("session '%v' does not exist", id)
-	}
-	delete(sessions, id)
 	b.revoked[id] = session
 	return nil
 }
@@ -116,6 +109,16 @@ func (b *InMemoryBackend) ListRevoked() (list StoredSessionList, err error) {
 
 	for id, session := range b.revoked {
 		list = append(list, StoredSession{ID: id, Session: session})
+	}
+	return
+}
+
+func (b *InMemoryBackend) LoadRevocations(list StoredSessionList) (err error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	for _, session := range list {
+		b.revoked[session.ID] = session.Session
 	}
 	return
 }
