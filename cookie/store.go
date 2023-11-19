@@ -84,8 +84,8 @@ type SignerVerifier interface {
 }
 
 type StoredSession struct {
-	ID      ulid.ULID `json:"id"`
-	Session Session   `josn:"session"`
+	ID      ulid.ULID   `json:"id"`
+	Session SessionBase `josn:"session"`
 }
 
 type StoredSessionList []StoredSession
@@ -104,9 +104,9 @@ type SignedRevocationList struct {
 }
 
 type StoreBackend interface {
-	Save(id ulid.ULID, session Session) error
+	Save(id ulid.ULID, session SessionBase) error
 	ListUser(username string) (StoredSessionList, error)
-	Revoke(id ulid.ULID, session Session) error
+	Revoke(id ulid.ULID, session SessionBase) error
 	IsRevoked(id ulid.ULID) (bool, error)
 	ListRevoked() (StoredSessionList, error)
 	LoadRevocations(StoredSessionList) (uint, error)
@@ -332,7 +332,7 @@ func (st *Store) Options() (opts Options) {
 	return
 }
 
-func (st *Store) New(s Session) (value string, opts Options, err error) {
+func (st *Store) New(s SessionBase) (value string, opts Options, err error) {
 	if st.signer == nil {
 		err = fmt.Errorf("no signing key loaded")
 		return
@@ -358,7 +358,7 @@ func (st *Store) New(s Session) (value string, opts Options, err error) {
 	return
 }
 
-func (st *Store) Verify(value string) (id string, s Session, err error) {
+func (st *Store) Verify(value string) (id string, s SessionBase, err error) {
 	var v Value
 	if err = v.FromString(value); err != nil {
 		return
@@ -408,7 +408,7 @@ func (st *Store) ListUser(username string) (StoredSessionList, error) {
 	return st.backend.ListUser(username)
 }
 
-func (st *Store) Revoke(id string, session Session) error {
+func (st *Store) Revoke(id string, session SessionBase) error {
 	toRevoke, err := ulid.ParseStrict(id)
 	if err != nil {
 		return err

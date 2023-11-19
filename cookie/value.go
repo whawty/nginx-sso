@@ -45,16 +45,16 @@ const (
 	ulidLength = len(ulid.ULID{})
 )
 
-type Session struct {
+type SessionBase struct {
 	Username string `json:"u"`
 	Expires  int64  `json:"e"`
 }
 
-func (s *Session) SetExpiry(lifetime time.Duration) {
+func (s *SessionBase) SetExpiry(lifetime time.Duration) {
 	s.Expires = time.Now().Add(lifetime).Unix()
 }
 
-func (s *Session) IsExpired() bool {
+func (s *SessionBase) IsExpired() bool {
 	return time.Unix(s.Expires, 0).Before(time.Now())
 }
 
@@ -63,7 +63,7 @@ type Value struct {
 	signature []byte
 }
 
-func MakeValue(id ulid.ULID, s Session) (v *Value, err error) {
+func MakeValue(id ulid.ULID, s SessionBase) (v *Value, err error) {
 	payload := make([]byte, ulidLength, 128)
 
 	if err = id.MarshalBinaryTo(payload); err != nil {
@@ -109,7 +109,7 @@ func (v *Value) FromString(encoded string) (err error) {
 	return
 }
 
-func (v *Value) Session() (s Session, err error) {
+func (v *Value) Session() (s SessionBase, err error) {
 	err = json.Unmarshal(v.payload[ulidLength:], &s)
 	return
 }

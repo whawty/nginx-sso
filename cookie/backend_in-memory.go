@@ -40,7 +40,7 @@ import (
 type InMemoryBackendConfig struct {
 }
 
-type InMemorySessionList map[ulid.ULID]Session
+type InMemorySessionList map[ulid.ULID]SessionBase
 
 type InMemoryBackend struct {
 	mutex    sync.RWMutex
@@ -55,7 +55,7 @@ func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
 	return m, nil
 }
 
-func (b *InMemoryBackend) Save(id ulid.ULID, session Session) error {
+func (b *InMemoryBackend) Save(id ulid.ULID, session SessionBase) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -87,7 +87,7 @@ func (b *InMemoryBackend) ListUser(username string) (list StoredSessionList, err
 	return
 }
 
-func (b *InMemoryBackend) Revoke(id ulid.ULID, session Session) error {
+func (b *InMemoryBackend) Revoke(id ulid.ULID, session SessionBase) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 

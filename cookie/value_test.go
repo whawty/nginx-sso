@@ -40,7 +40,7 @@ import (
 
 func TestMakeValue(t *testing.T) {
 	testID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
-	testSession := Session{Username: "test", Expires: 1000}
+	testSession := SessionBase{Username: "test", Expires: 1000}
 	testSessionEncoded := []byte("{\"u\":\"test\",\"e\":1000}")
 	expectedPayload := append(testID.Bytes(), testSessionEncoded...)
 
@@ -55,7 +55,7 @@ func TestMakeValue(t *testing.T) {
 
 func TestValueToString(t *testing.T) {
 	testID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
-	testSession := Session{Username: "test", Expires: 1000}
+	testSession := SessionBase{Username: "test", Expires: 1000}
 	v, err := MakeValue(testID, testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -107,7 +107,7 @@ func TestValueFromString(t *testing.T) {
 
 	encoded := "ABEiM0RVZneImaq7zN3u_3sidSI6InRlc3QiLCJlIjoxMDAwfQ.dGhpcy1pcy1ub3QtYS1zaWduYXR1cmU"
 	expectedSignature := []byte("this-is-not-a-signature")
-	expectedSession := Session{Username: "test", Expires: 1000}
+	expectedSession := SessionBase{Username: "test", Expires: 1000}
 	expectedID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
 
 	var v Value

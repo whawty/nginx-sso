@@ -136,7 +136,7 @@ func TestNew(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	testSession := Session{Username: "test-user"}
+	testSession := SessionBase{Username: "test-user"}
 	_, _, err = st.New(testSession)
 	if err == nil {
 		t.Fatal("calling New() on verify-only store must return an error")
@@ -200,7 +200,7 @@ func TestVerify(t *testing.T) {
 		t.Fatal("verifing invalid cookie value should fail")
 	}
 
-	testSession := Session{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
+	testSession := SessionBase{Username: "test-user", Expires: time.Now().Add(time.Hour).Unix()}
 	testValue, err := MakeValue(ulid.Make(), testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -231,7 +231,7 @@ func TestVerify(t *testing.T) {
 		t.Fatal("extracting an ivalid payload should fail")
 	}
 
-	if testValue, err = MakeValue(ulid.Make(), Session{Username: "test-user", Expires: time.Now().Unix()}); err != nil {
+	if testValue, err = MakeValue(ulid.Make(), SessionBase{Username: "test-user", Expires: time.Now().Unix()}); err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 	testValue.signature, err = st.signer.Sign(testValue.payload)
@@ -277,7 +277,7 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	testSession := Session{Username: "test-user"}
+	testSession := SessionBase{Username: "test-user"}
 	value, _, err := st.New(testSession)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
