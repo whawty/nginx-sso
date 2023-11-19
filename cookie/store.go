@@ -83,18 +83,18 @@ type SignerVerifier interface {
 	Verify(payload, signature []byte) error
 }
 
-type StoredSession struct {
-	ID      ulid.ULID   `json:"id"`
-	Session SessionBase `josn:"session"`
+type Session struct {
+	ID ulid.ULID `json:"id"`
+	SessionBase
 }
 
-type StoredSessionList []StoredSession
+type SessionList []Session
 
-func (l StoredSessionList) MarshalJSON() ([]byte, error) {
+func (l SessionList) MarshalJSON() ([]byte, error) {
 	if len(l) == 0 {
 		return []byte("[]"), nil
 	}
-	var tmp []StoredSession = l
+	var tmp []Session = l
 	return json.Marshal(tmp)
 }
 
@@ -105,11 +105,11 @@ type SignedRevocationList struct {
 
 type StoreBackend interface {
 	Save(id ulid.ULID, session SessionBase) error
-	ListUser(username string) (StoredSessionList, error)
+	ListUser(username string) (SessionList, error)
 	Revoke(id ulid.ULID, session SessionBase) error
 	IsRevoked(id ulid.ULID) (bool, error)
-	ListRevoked() (StoredSessionList, error)
-	LoadRevocations(StoredSessionList) (uint, error)
+	ListRevoked() (SessionList, error)
+	LoadRevocations(SessionList) (uint, error)
 	CollectGarbage() (uint, error)
 }
 
@@ -242,7 +242,7 @@ func (st *Store) syncRevocations(client *http.Client, syncBaseURL *url.URL, toke
 		return
 	}
 
-	var list StoredSessionList
+	var list SessionList
 	if err = json.Unmarshal(signed.Revoked, &list); err != nil {
 		st.infoLog.Printf("sync-store: error parsing sync response: %v", err)
 		return
@@ -404,7 +404,7 @@ func (st *Store) Verify(value string) (id string, s SessionBase, err error) {
 	return
 }
 
-func (st *Store) ListUser(username string) (StoredSessionList, error) {
+func (st *Store) ListUser(username string) (SessionList, error) {
 	return st.backend.ListUser(username)
 }
 
@@ -421,7 +421,7 @@ func (st *Store) Revoke(id string, session SessionBase) error {
 }
 
 func (st *Store) ListRevoked() (result SignedRevocationList, err error) {
-	var revoked StoredSessionList
+	var revoked SessionList
 	if revoked, err = st.backend.ListRevoked(); err != nil {
 		return
 	}
