@@ -40,18 +40,18 @@ import (
 type InMemoryBackendConfig struct {
 }
 
-type InMemorySessionList map[ulid.ULID]SessionBase
+type InMemorySessionMap map[ulid.ULID]SessionBase
 
 type InMemoryBackend struct {
 	mutex    sync.RWMutex
-	sessions map[string]InMemorySessionList
-	revoked  InMemorySessionList
+	sessions map[string]InMemorySessionMap
+	revoked  InMemorySessionMap
 }
 
 func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
 	m := &InMemoryBackend{}
-	m.sessions = make(map[string]InMemorySessionList)
-	m.revoked = make(InMemorySessionList)
+	m.sessions = make(map[string]InMemorySessionMap)
+	m.revoked = make(InMemorySessionMap)
 	return m, nil
 }
 
@@ -61,7 +61,7 @@ func (b *InMemoryBackend) Save(id ulid.ULID, session SessionBase) error {
 
 	sessions, exists := b.sessions[session.Username]
 	if !exists {
-		sessions = make(InMemorySessionList)
+		sessions = make(InMemorySessionMap)
 		b.sessions[session.Username] = sessions
 	}
 	if _, exists = sessions[id]; exists {
