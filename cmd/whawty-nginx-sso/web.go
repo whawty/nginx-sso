@@ -57,6 +57,21 @@ func logTemplateErrors(c *gin.Context) {
 	}
 }
 
+func getAgentInfo(c *gin.Context) cookie.AgentInfo {
+	ua := useragent.Parse(c.GetHeader("User-Agent"))
+	deviceType := "unknown"
+	if ua.Mobile {
+		deviceType = cookie.DeviceTypeMobile
+	} else if ua.Tablet {
+		deviceType = cookie.DeviceTypeTablet
+	} else if ua.Desktop {
+		deviceType = cookie.DeviceTypeDesktop
+	} else if ua.Bot {
+		deviceType = cookie.DeviceTypeBot
+	}
+	return cookie.AgentInfo{Name: ua.Name, OS: ua.OS, DeviceType: deviceType}
+}
+
 type HandlerContext struct {
 	conf    *WebConfig
 	cookies *cookie.Store
@@ -145,8 +160,7 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 		return
 	}
 
-	ua := useragent.Parse(c.GetHeader("User-Agent"))
-	value, opts, err := h.cookies.New(username, cookie.AgentInfo{Name: ua.Name, OS: ua.OS})
+	value, opts, err := h.cookies.New(username, getAgentInfo(c))
 	if err != nil {
 		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "failed to generate cookie", Message: err.Error()}
 		c.HTML(http.StatusBadRequest, "login.htmpl", tmplCtx)

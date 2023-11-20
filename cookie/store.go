@@ -94,9 +94,17 @@ func (l SessionList) MarshalJSON() ([]byte, error) {
 }
 
 type AgentInfo struct {
-	Name string `json:"name"`
-	OS   string `json:"os"`
+	Name       string `json:"name"`
+	OS         string `json:"os"`
+	DeviceType string `json:"device-type"`
 }
+
+const (
+	DeviceTypeMobile  = "Mobile"
+	DeviceTypeTablet  = "Tablet"
+	DeviceTypeDesktop = "Desktop"
+	DeviceTypeBot     = "Bot"
+)
 
 type SessionFull struct {
 	Session

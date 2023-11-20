@@ -32,10 +32,19 @@
 package ui
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path"
+
+	"github.com/flosch/pongo2/v6"
+	"github.com/mileusna/useragent"
+	"github.com/whawty/nginx-sso/cookie"
 )
+
+func init() {
+	pongo2.RegisterFilter("fa_icon", filterFontAwesomeIcon)
+}
 
 type filteredFilesystem struct {
 	base http.FileSystem
@@ -63,4 +72,80 @@ type Alert struct {
 	Level   AlertLevel
 	Heading string
 	Message string
+}
+
+func fontAwesomeIconFromAgentInfo(ai cookie.AgentInfo, attribute string) (*pongo2.Value, *pongo2.Error) {
+	switch attribute {
+	case "Name":
+		switch ai.Name {
+		case useragent.Firefox:
+			return pongo2.AsSafeValue("fa-brands fa-firefox"), nil
+		case useragent.HeadlessChrome:
+			fallthrough
+		case useragent.Chrome:
+			return pongo2.AsSafeValue("fa-brands fa-chrome"), nil
+		case useragent.OperaMini:
+			fallthrough
+		case useragent.OperaTouch:
+			fallthrough
+		case useragent.Opera:
+			return pongo2.AsSafeValue("fa-brands fa-opera"), nil
+		case useragent.Safari:
+			return pongo2.AsSafeValue("fa-brands fa-safari"), nil
+		case useragent.InternetExplorer:
+			return pongo2.AsSafeValue("fa-brands fa-internet-explorer"), nil
+		case useragent.Edge:
+			return pongo2.AsSafeValue("fa-brands fa-edge"), nil
+		default:
+			return pongo2.AsSafeValue("fa-solid fa-question"), nil
+		}
+	case "OS":
+		switch ai.OS {
+		case useragent.Linux:
+			return pongo2.AsSafeValue("fa-brands fa-linux"), nil
+		case useragent.WindowsPhone:
+			fallthrough
+		case useragent.Windows:
+			return pongo2.AsSafeValue("fa-brands fa-windows"), nil
+		case useragent.Android:
+			return pongo2.AsSafeValue("fa-brands fa-android"), nil
+		case useragent.MacOS:
+			fallthrough
+		case useragent.IOS:
+			return pongo2.AsSafeValue("fa-brands fa-apple"), nil
+		case useragent.FreeBSD:
+			return pongo2.AsSafeValue("fa-brands fa-freebsd"), nil
+		case useragent.ChromeOS:
+			return pongo2.AsSafeValue("fa-brands fa-chrome"), nil
+		case useragent.BlackBerry:
+			return pongo2.AsSafeValue("fa-brands fa-blackberry"), nil
+		default:
+			return pongo2.AsSafeValue("fa-solid fa-question"), nil
+		}
+	case "DeviceType":
+		switch ai.DeviceType {
+		case cookie.DeviceTypeMobile:
+			return pongo2.AsSafeValue("fa-solid fa-mobile"), nil
+		case cookie.DeviceTypeTablet:
+			return pongo2.AsSafeValue("fa-solid fa-tablet"), nil
+		case cookie.DeviceTypeDesktop:
+			return pongo2.AsSafeValue("fa-solid fa-desktop"), nil
+		case cookie.DeviceTypeBot:
+			return pongo2.AsSafeValue("fa-solid fa-robot"), nil
+		default:
+			return pongo2.AsSafeValue("fa-solid fa-question"), nil
+		}
+	}
+	err := fmt.Errorf("cookie.AgentInfo has no attribute '%s'", attribute)
+	return nil, &pongo2.Error{Sender: "filter:fa_icon", OrigError: err}
+}
+
+func filterFontAwesomeIcon(in *pongo2.Value, param *pongo2.Value) (*pongo2.Value, *pongo2.Error) {
+	obj := in.Interface()
+	switch obj.(type) {
+	case cookie.AgentInfo:
+		return fontAwesomeIconFromAgentInfo(obj.(cookie.AgentInfo), param.String())
+	}
+	err := fmt.Errorf("object type '%T' is not supported", obj)
+	return nil, &pongo2.Error{Sender: "filter:fa_icon", OrigError: err}
 }
