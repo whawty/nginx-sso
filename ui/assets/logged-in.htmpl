@@ -79,8 +79,8 @@
             <i class="fa-brands fa-{{ other.Agent.Name | lower }}" aria-hidden="true"></i> {{ other.Agent.Name | escape }} /
             <i class="fa-brands fa-{{ other.Agent.OS | lower }}" aria-hidden="true"></i> {{ other.Agent.OS | escape }}
           </div>
-          <div class="col-md-2"> --FIXME-- {# other.CreatedAt() | time:"Mon 1.2.2006 15:04:05" #}</div>
-          <div class="col-md-2"> --FIXME-- {# other.ExpiresAt() | time:"Mon 1.2.2006 15:04:05" #}</div>
+          <div class="col-md-2">{{ other.CreatedAt() | time:"Mon 1.2.2006 15:04:05" }}</div>
+          <div class="col-md-2">{{ other.ExpiresAt() | time:"Mon 1.2.2006 15:04:05" }}</div>
           <div class="col-md-2">
             <form method="get" action="{{ login.BasePath }}/logout">
               <input type=hidden name=id value="{{ other.ID }}">

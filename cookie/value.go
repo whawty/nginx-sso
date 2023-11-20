@@ -63,11 +63,11 @@ type Session struct {
 	SessionBase
 }
 
-func (s *Session) CreatedAt() time.Time {
+func (s Session) CreatedAt() time.Time {
 	return time.UnixMilli((int64)(s.ID.Time()))
 }
 
-func (s *Session) ExpiresAt() time.Time {
+func (s Session) ExpiresAt() time.Time {
 	return time.Unix(s.Expires, 0)
 }
 

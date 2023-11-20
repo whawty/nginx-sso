@@ -103,11 +103,11 @@ type SessionFull struct {
 	Agent AgentInfo `json:"agent"`
 }
 
-func (s *SessionFull) CreatedAt() time.Time {
+func (s SessionFull) CreatedAt() time.Time {
 	return s.Session.CreatedAt()
 }
 
-func (s *SessionFull) ExpiresAt() time.Time {
+func (s SessionFull) ExpiresAt() time.Time {
 	return s.Session.ExpiresAt()
 }
 

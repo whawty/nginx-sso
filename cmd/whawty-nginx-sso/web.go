@@ -51,6 +51,12 @@ type WebError struct {
 	Error string `json:"error"`
 }
 
+func logTemplateErrors(c *gin.Context) {
+	for _, err := range c.Errors {
+		wl.Printf("HTML template error: %s", err)
+	}
+}
+
 type HandlerContext struct {
 	conf    *WebConfig
 	cookies *cookie.Store
@@ -97,23 +103,22 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 	login := h.conf.Login
 	login.BasePath = h.getBasePath(c)
 
-	session, err := h.verifyCookie(c)
-	if err == nil {
-		ctx := pongo2.Context{"login": login, "session": session}
-		sessions, err := h.cookies.ListUser(session.Username)
-		ctx["sessions"] = sessions
-		if err != nil {
-			ctx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "failed to load user sessions", Message: err.Error()}
+	tmplCtx := pongo2.Context{"login": login}
+	if session, err := h.verifyCookie(c); err == nil {
+		tmplCtx["session"] = session
+		if sessions, err := h.cookies.ListUser(session.Username); err == nil {
+			tmplCtx["sessions"] = sessions
+		} else {
+			tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "failed to load user sessions", Message: err.Error()}
 		}
-		c.HTML(http.StatusOK, "logged-in.htmpl", ctx)
+		c.HTML(http.StatusOK, "logged-in.htmpl", tmplCtx)
+		logTemplateErrors(c)
 		return
 	}
 
-	redirect, _ := c.GetQuery("redir")
-	c.HTML(http.StatusOK, "login.htmpl", pongo2.Context{
-		"login":    login,
-		"redirect": redirect,
-	})
+	tmplCtx["redirect"], _ = c.GetQuery("redir")
+	c.HTML(http.StatusOK, "login.htmpl", tmplCtx)
+	logTemplateErrors(c)
 	return
 }
 
@@ -124,33 +129,28 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 	redirect := c.PostForm("redirect")
+	tmplCtx := pongo2.Context{"login": login, "redirect": redirect}
 	if username == "" || password == "" {
-		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
-			"login":    login,
-			"redirect": redirect,
-			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "missing parameter", Message: "username and password are mandatory"},
-		})
+		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "missing parameter", Message: "username and password are mandatory"}
+		c.HTML(http.StatusBadRequest, "login.htmpl", tmplCtx)
+		logTemplateErrors(c)
 		return
 	}
 
 	err := h.auth.Authenticate(username, password)
 	if err != nil {
-		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
-			"login":    login,
-			"redirect": redirect,
-			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "login failed", Message: err.Error()},
-		})
+		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "login failed", Message: err.Error()}
+		c.HTML(http.StatusBadRequest, "login.htmpl", tmplCtx)
+		logTemplateErrors(c)
 		return
 	}
 
 	ua := useragent.Parse(c.GetHeader("User-Agent"))
 	value, opts, err := h.cookies.New(username, cookie.AgentInfo{Name: ua.Name, OS: ua.OS})
 	if err != nil {
-		c.HTML(http.StatusBadRequest, "login.htmpl", pongo2.Context{
-			"login":    login,
-			"redirect": redirect,
-			"alert":    ui.Alert{Level: ui.AlertDanger, Heading: "failed to generate cookie", Message: err.Error()},
-		})
+		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "failed to generate cookie", Message: err.Error()}
+		c.HTML(http.StatusBadRequest, "login.htmpl", tmplCtx)
+		logTemplateErrors(c)
 		return
 	}
 	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
