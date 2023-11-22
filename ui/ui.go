@@ -32,11 +32,14 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path"
+	"time"
 
+	"github.com/flosch/go-humanize"
 	"github.com/flosch/pongo2/v6"
 	"github.com/mileusna/useragent"
 	"github.com/whawty/nginx-sso/cookie"
@@ -44,6 +47,9 @@ import (
 
 func init() {
 	pongo2.RegisterFilter("fa_icon", filterFontAwesomeIcon)
+	pongo2.RegisterFilter("timeuntil", filterTimeuntilTimesince)
+	pongo2.RegisterFilter("timesince", filterTimeuntilTimesince)
+	pongo2.RegisterFilter("naturaltime", filterTimeuntilTimesince)
 }
 
 type filteredFilesystem struct {
@@ -148,4 +154,29 @@ func filterFontAwesomeIcon(in *pongo2.Value, param *pongo2.Value) (*pongo2.Value
 	}
 	err := fmt.Errorf("object type '%T' is not supported", obj)
 	return nil, &pongo2.Error{Sender: "filter:fa_icon", OrigError: err}
+}
+
+// This is a copy from: https://github.com/flosch/pongo2-addons which sadly does not support pongo2/v6 yet...
+func filterTimeuntilTimesince(in *pongo2.Value, param *pongo2.Value) (*pongo2.Value, *pongo2.Error) {
+	basetime, isTime := in.Interface().(time.Time)
+	if !isTime {
+		return nil, &pongo2.Error{
+			Sender:    "filter:timeuntil/timesince",
+			OrigError: errors.New("time-value is not a time.Time-instance"),
+		}
+	}
+	var paramtime time.Time
+	if !param.IsNil() {
+		paramtime, isTime = param.Interface().(time.Time)
+		if !isTime {
+			return nil, &pongo2.Error{
+				Sender:    "filter:timeuntil/timesince",
+				OrigError: errors.New("time-parameter is not a time.Time-instance"),
+			}
+		}
+	} else {
+		paramtime = time.Now()
+	}
+
+	return pongo2.AsValue(humanize.TimeDuration(basetime.Sub(paramtime))), nil
 }

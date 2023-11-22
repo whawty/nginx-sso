@@ -28,14 +28,14 @@
         <div class="row">
           <div class="col-md-3"></div>
           <div class="col-md-6">
-            created: <strong>{{ session.CreatedAt() | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
+            created: <strong data-bs-toggle="tooltip" data-bs-title="{{ session.CreatedAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ session.CreatedAt() | timesince }}</strong>
           </div>
           <div class="col-md-3"></div>
         </div>
         <div class="row">
           <div class="col-md-3"></div>
           <div class="col-md-6">
-            expires: <strong>{{ session.ExpiresAt() | time:"Mon Jan _2 15:04:05 MST 2006" }}</strong>
+            expires: <strong data-bs-toggle="tooltip" data-bs-title="{{ session.ExpiresAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ session.ExpiresAt() | timeuntil }}</strong>
           </div>
           <div class="col-md-3"></div>
         </div>
@@ -70,29 +70,49 @@
           <div class="col-md-2"></div>
         </div>
 {% endif %}
+        <div class="row">
+          <div class="col-md-1"></div>
+          <div class="col-md-10">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th scope="col">Client</th>
+                  <th scope="col">Created</th>
+                  <th scope="col">Expires</th>
+                  <th scope="col"></th>
+                </tr>
+              </thead>
+              <tbody>
 {% for other in sessions %}
 {%   if other.ID != session.ID %}
-        <div class="row">
-          <div class="col-md-2"></div>
-          <div class="col-md-3">
-            <i class="{{ other.Agent | fa_icon:'Name' }}" aria-hidden="true"></i> {{ other.Agent.Name | escape }} /
-            <i class="{{ other.Agent | fa_icon:'OS' }}" aria-hidden="true"></i> {{ other.Agent.OS | escape }} /
-            <i class="{{ other.Agent | fa_icon:'DeviceType' }}" aria-hidden="true"></i> {{ other.Agent.DeviceType | escape }}
-          </div>
-          <div class="col-md-2">{{ other.CreatedAt() | time:"Mon 1.2.2006 15:04:05" }}</div>
-          <div class="col-md-2">{{ other.ExpiresAt() | time:"Mon 1.2.2006 15:04:05" }}</div>
-          <div class="col-md-2">
-            <form method="get" action="{{ login.BasePath }}/logout">
-              <input type=hidden name=id value="{{ other.ID }}">
-              <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
-            </form>
+                <tr>
+                  <td>
+                    <i class="{{ other.Agent | fa_icon:'Name' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.Name | escape }} /
+                    <i class="{{ other.Agent | fa_icon:'OS' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.OS | escape }} /
+                    <i class="{{ other.Agent | fa_icon:'DeviceType' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.DeviceType | escape }}
+                  </td>
+                  <td><span data-bs-toggle="tooltip" data-bs-title="{{ other.CreatedAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ other.CreatedAt() | timesince }}</span></td>
+                  <td><span data-bs-toggle="tooltip" data-bs-title="{{ other.ExpiresAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ other.ExpiresAt() | timeuntil }}</span></td>
+                  <td>
+                    <form method="get" action="{{ login.BasePath }}/logout">
+                      <input type=hidden name=id value="{{ other.ID }}">
+                      <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
+                    </form>
+                  </td>
+                </tr>
+{%   endif %}
+{% endfor %}
+              </tbody>
+            </table>
           </div>
           <div class="col-md-1"></div>
         </div>
-{%   endif %}
-{% endfor %}
       </div>
     </div>
     <script src="{{ login.BasePath }}/ui/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript">
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+      const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+    </script>
   </body>
 </html>
