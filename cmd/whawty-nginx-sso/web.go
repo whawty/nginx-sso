@@ -41,6 +41,7 @@ import (
 	"github.com/flosch/pongo2/v6"
 	"github.com/gin-gonic/gin"
 	"github.com/mileusna/useragent"
+	"github.com/oklog/ulid/v2"
 	"github.com/whawty/nginx-sso/auth"
 	"github.com/whawty/nginx-sso/cookie"
 	"github.com/whawty/nginx-sso/ui"
@@ -176,15 +177,24 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleLogout(c *gin.Context) {
-	id, _ := c.GetQuery("id")
-	if id != "" {
-		// TODO: implement this!
-		c.JSON(http.StatusNotImplemented, WebError{"logout of other sessions is not yet implemented"})
-		return
-	}
-
 	session, err := h.verifyCookie(c)
 	if err == nil {
+		if idParam, _ := c.GetQuery("id"); idParam != "" {
+			id, err := ulid.ParseStrict(idParam)
+			if err != nil {
+				// TODO: render error page!
+				c.JSON(http.StatusBadRequest, WebError{err.Error()})
+				return
+			}
+			if err = h.cookies.RevokeID(session.Username, id); err != nil {
+				// TODO: render error page!
+				c.JSON(http.StatusInternalServerError, WebError{err.Error()})
+				return
+			}
+			c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login"))
+			return
+		}
+
 		if err = h.cookies.Revoke(*session); err != nil {
 			// TODO: render error page!
 			c.JSON(http.StatusInternalServerError, WebError{err.Error()})

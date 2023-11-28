@@ -85,9 +85,7 @@ func (b *InMemoryBackend) ListUser(username string) (list SessionFullList, err e
 		return
 	}
 	for id, session := range sessions {
-		if _, revoked := b.revoked[id]; !revoked {
-			list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
-		}
+		list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
 	}
 	return
 }
@@ -96,7 +94,27 @@ func (b *InMemoryBackend) Revoke(session Session) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
+	if sessions, exists := b.sessions[session.Username]; exists {
+		delete(sessions, session.ID)
+	}
 	b.revoked[session.ID] = session.SessionBase
+	return nil
+}
+
+func (b *InMemoryBackend) RevokeID(username string, id ulid.ULID) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	sessions, exists := b.sessions[username]
+	if !exists {
+		return nil
+	}
+	session, exists := sessions[id]
+	if !exists {
+		return nil
+	}
+	delete(sessions, id)
+	b.revoked[id] = session.SessionBase
 	return nil
 }
 

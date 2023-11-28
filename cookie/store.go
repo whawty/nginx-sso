@@ -138,6 +138,7 @@ type StoreBackend interface {
 	Save(session SessionFull) error
 	ListUser(username string) (SessionFullList, error)
 	Revoke(session Session) error
+	RevokeID(username string, id ulid.ULID) error
 	IsRevoked(session Session) (bool, error)
 	ListRevoked() (SessionList, error)
 	LoadRevocations(SessionList) (uint, error)
@@ -438,6 +439,14 @@ func (st *Store) Revoke(session Session) error {
 		return err
 	}
 	st.dbgLog.Printf("successfully revoked session('%v')", session.ID)
+	return nil
+}
+
+func (st *Store) RevokeID(username string, id ulid.ULID) error {
+	if err := st.backend.RevokeID(username, id); err != nil {
+		return err
+	}
+	st.dbgLog.Printf("successfully revoked session('%v')", id)
 	return nil
 }
 
