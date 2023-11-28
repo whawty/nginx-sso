@@ -34,9 +34,39 @@ import (
 	"bytes"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/oklog/ulid/v2"
 )
+
+func TestSessionTimes(t *testing.T) {
+	testSessionBase := SessionBase{Username: "test"}
+	testSessionBase.SetExpiry(time.Second)
+	if testSessionBase.IsExpired() {
+		t.Fatal("newly created session should not be expired!")
+	}
+	time.Sleep(1200 * time.Millisecond)
+	if !testSessionBase.IsExpired() {
+		t.Fatal("session should expire after 1 second")
+	}
+
+	now := time.Now().Round(time.Millisecond)
+	testSession := Session{ID: ulid.MustNew(uint64(now.UnixMilli()), ulid.DefaultEntropy())}
+	testSessionBase.SetExpiry(time.Hour)
+	testSession.SessionBase = testSessionBase
+
+	if !now.Equal(testSession.CreatedAt()) {
+		t.Fatalf("session creation time is wrong, expected: '%v', got '%v'", now, testSession.CreatedAt())
+	}
+
+	expectedExpiryMin := now.Add(time.Hour).Truncate(time.Second)
+	expectedExpiryMax := expectedExpiryMin.Add(time.Second)
+	testExpiry := testSession.ExpiresAt()
+
+	if testExpiry.Before(expectedExpiryMin) || testExpiry.After(expectedExpiryMax) {
+		t.Fatalf("session expiry time is wrong, expected between: '%v' and '%v', got '%v'", expectedExpiryMin, expectedExpiryMax, testExpiry)
+	}
+}
 
 func TestMakeValue(t *testing.T) {
 	testID := ulid.MustParseStrict("0024H36H2NCSVRH6DAQF6DVVQZ")
