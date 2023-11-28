@@ -31,12 +31,34 @@
 package cookie
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"testing"
 	"time"
 
 	"github.com/oklog/ulid/v2"
 )
+
+func TestSessionListEmptyJson(t *testing.T) {
+	testList := SessionList{}
+
+	out, err := testList.MarshalJSON()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if bytes.Compare(out, []byte("[]")) != 0 {
+		t.Fatalf("marshalling empty SessionList to json should return '[]', got '%s'", string(out))
+	}
+
+	testListFull := SessionFullList{}
+	out, err = testListFull.MarshalJSON()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if bytes.Compare(out, []byte("[]")) != 0 {
+		t.Fatalf("marshalling empty SessionFullList to json should return '[]', got '%s'", string(out))
+	}
+}
 
 func TestNewStore(t *testing.T) {
 	conf := &Config{}
@@ -45,7 +67,7 @@ func TestNewStore(t *testing.T) {
 		t.Fatal("initializing store from empty config should fail")
 	}
 
-	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}} // TODO: test New with empty backend config
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "empty"},
 	}
@@ -94,6 +116,12 @@ func TestNewStore(t *testing.T) {
 	if st.signer == nil {
 		t.Fatal("initializing store with sign-and-verify key must have signer attribute")
 	}
+
+	conf.Backend = StoreBackendConfig{}
+	_, err = NewStore(conf, nil, nil)
+	if err == nil {
+		t.Fatal("initializing store with empty backend config should fail")
+	}
 }
 
 func TestMultipleKeys(t *testing.T) {
@@ -122,6 +150,32 @@ func TestMultipleKeys(t *testing.T) {
 	expectedContext := cookieName + "_sign-and-verify"
 	if ed25519Signer.context != expectedContext {
 		t.Fatalf("signer has wrong context, expected: '%+v', got '%+v'", expectedContext, ed25519Signer.context)
+	}
+}
+
+func TestBackendSync(t *testing.T) {
+	cookieName := "some-prefix"
+	ed25519ConfVerifyOnly := &Ed25519Config{PubKeyData: &testPubKeyEd25519Pem}
+
+	conf := &Config{Name: cookieName}
+	conf.Keys = []SignerVerifierConfig{
+		SignerVerifierConfig{Name: "verify-only", Ed25519: ed25519ConfVerifyOnly},
+	}
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
+	conf.Backend.Sync = &StoreSyncConfig{BaseURL: ""}
+	_, err := NewStore(conf, nil, nil)
+	if err == nil {
+		t.Fatal("initializing store with empty sync base-url shoud fail")
+	}
+	conf.Backend.Sync = &StoreSyncConfig{BaseURL: "file:///not/a/http/url"}
+	_, err = NewStore(conf, nil, nil)
+	if err == nil {
+		t.Fatal("initializing store with non-http(s) sync base-url shoud fail")
+	}
+	conf.Backend.Sync = &StoreSyncConfig{BaseURL: "http://192.0.2.1"}
+	_, err = NewStore(conf, nil, nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
 	}
 }
 
@@ -263,6 +317,15 @@ func TestVerify(t *testing.T) {
 	if s.ID.Compare(testID) != 0 {
 		t.Fatalf("the id is wrong, expected: %s, got %s", testID.String(), s.ID)
 	}
+
+	if err = st.Revoke(s); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	_, err = st.Verify(testValue.String())
+	if err == nil {
+		t.Fatal("revoked session should not successfully verify")
+	}
 }
 
 func TestNewThenVerifyMultipleKeys(t *testing.T) {
@@ -317,4 +380,213 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
+}
+
+func TestListUser(t *testing.T) {
+	conf := &Config{}
+	conf.Name = "some-prefix"
+	conf.Expire = time.Hour
+	conf.Keys = []SignerVerifierConfig{
+		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
+	}
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
+	st, err := NewStore(conf, nil, nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	testUser := "test-user"
+
+	list, err := st.ListUser(testUser)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("unexpected session list length: expected 0, got %d", len(list))
+	}
+
+	testAgent1 := AgentInfo{Name: "test-agent1", OS: "test-os1"}
+	value1, _, err := st.New(testUser, testAgent1)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	list, err = st.ListUser(testUser)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("unexpected session list length: expected 1, got %d", len(list))
+	}
+
+	testAgent2 := AgentInfo{Name: "test-agent2", OS: "test-os2"}
+	value2, _, err := st.New(testUser, testAgent2)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	list, err = st.ListUser(testUser)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("unexpected session list length: expected 2, got %d", len(list))
+	}
+
+	testUser2 := "other-user"
+	_, _, err = st.New(testUser2, testAgent1)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	list, err = st.ListUser(testUser)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("unexpected session list length: expected 2, got %d", len(list))
+	}
+
+	var v1 Value
+	err = v1.FromString(value1)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	s1, err := v1.Session()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	err = st.Revoke(s1)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	list, err = st.ListUser(testUser)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("unexpected session list length: expected 1, got %d", len(list))
+	}
+
+	var v2 Value
+	err = v2.FromString(value2)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	s2, err := v2.Session()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	err = st.Revoke(s2)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	list, err = st.ListUser(testUser)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("unexpected session list length: expected 0, got %d", len(list))
+	}
+
+	list, err = st.ListUser(testUser2)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("unexpected session list length: expected 1, got %d", len(list))
+	}
+
+	// TODO: actually compare session IDs and in session list with expected sessions
+}
+
+func TestListRevoked(t *testing.T) {
+	conf := &Config{}
+	conf.Name = "some-prefix"
+	conf.Expire = time.Hour
+	conf.Keys = []SignerVerifierConfig{
+		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
+	}
+	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
+	st, err := NewStore(conf, nil, nil)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	testUser := "test-user"
+	testAgent := AgentInfo{Name: "test-agent", OS: "test-os"}
+	value, _, err := st.New(testUser, testAgent)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	signed, err := st.ListRevoked()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if bytes.Compare([]byte("[]"), signed.Revoked) != 0 {
+		t.Fatalf("unexpected revocation list: expected '[]', got '%s'", signed.Revoked)
+	}
+	err = st.keys[0].Verify(signed.Revoked, signed.Signature)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	var v Value
+	err = v.FromString(value)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	s, err := v.Session()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	err = st.Revoke(s)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	signed, err = st.ListRevoked()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	list, err := st.verifyAndDecodeSignedRevocationList(signed)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("unexpected revocation list length: expected 1, got %d", len(list))
+	}
+
+	value, _, err = st.New(testUser, testAgent)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	err = v.FromString(value)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	s, err = v.Session()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	err = st.RevokeID(s.Username, s.ID)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	signed, err = st.ListRevoked()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	list, err = st.verifyAndDecodeSignedRevocationList(signed)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("unexpected revocation list length: expected 2, got %d", len(list))
+	}
+
+	// TODO: actually compare session IDs and in revocation list with expected sessions
 }

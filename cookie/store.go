@@ -243,6 +243,24 @@ func (st *Store) runGC(interval time.Duration) {
 	}
 }
 
+func (st *Store) verifyAndDecodeSignedRevocationList(signed SignedRevocationList) (list SessionList, err error) {
+	for _, key := range st.keys {
+		if err = key.Verify(signed.Revoked, signed.Signature); err == nil {
+			break
+		}
+	}
+	if err != nil {
+		st.infoLog.Printf("sync-store: revocation list signature is invalid")
+		return
+	}
+
+	if err = json.Unmarshal(signed.Revoked, &list); err != nil {
+		st.infoLog.Printf("sync-store: error parsing sync response: %v", err)
+		return
+	}
+	return
+}
+
 func (st *Store) syncRevocations(client *http.Client, syncBaseURL *url.URL, token string) {
 	req, _ := http.NewRequest("GET", syncBaseURL.JoinPath("revocations").String(), nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -264,19 +282,9 @@ func (st *Store) syncRevocations(client *http.Client, syncBaseURL *url.URL, toke
 		return
 	}
 
-	for _, key := range st.keys {
-		if err = key.Verify(signed.Revoked, signed.Signature); err == nil {
-			break
-		}
-	}
-	if err != nil {
-		st.infoLog.Printf("sync-store: revocation list signature is invalid")
-		return
-	}
-
 	var list SessionList
-	if err = json.Unmarshal(signed.Revoked, &list); err != nil {
-		st.infoLog.Printf("sync-store: error parsing sync response: %v", err)
+	list, err = st.verifyAndDecodeSignedRevocationList(signed)
+	if err != nil {
 		return
 	}
 
