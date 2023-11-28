@@ -105,6 +105,20 @@ func (h *HandlerContext) getBasePath(c *gin.Context) string {
 	return ""
 }
 
+func (h *HandlerContext) renderLoggedIn(c *gin.Context, code int, session *cookie.Session, alerts []ui.Alert) {
+	login := h.conf.Login
+	login.BasePath = h.getBasePath(c)
+	tmplCtx := pongo2.Context{"login": login, "session": session}
+	if sessions, err := h.cookies.ListUser(session.Username); err == nil {
+		tmplCtx["sessions"] = sessions
+	} else {
+		alerts = append(alerts, ui.Alert{Level: ui.AlertDanger, Heading: "failed to load user sessions", Message: err.Error()})
+	}
+	tmplCtx["alerts"] = alerts
+	c.HTML(http.StatusOK, "logged-in.htmpl", tmplCtx)
+	logTemplateErrors(c)
+}
+
 func (h *HandlerContext) handleAuth(c *gin.Context) {
 	session, err := h.verifyCookie(c)
 	if err != nil {
@@ -116,22 +130,14 @@ func (h *HandlerContext) handleAuth(c *gin.Context) {
 }
 
 func (h *HandlerContext) handleLoginGet(c *gin.Context) {
-	login := h.conf.Login
-	login.BasePath = h.getBasePath(c)
-
-	tmplCtx := pongo2.Context{"login": login}
 	if session, err := h.verifyCookie(c); err == nil {
-		tmplCtx["session"] = session
-		if sessions, err := h.cookies.ListUser(session.Username); err == nil {
-			tmplCtx["sessions"] = sessions
-		} else {
-			tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "failed to load user sessions", Message: err.Error()}
-		}
-		c.HTML(http.StatusOK, "logged-in.htmpl", tmplCtx)
-		logTemplateErrors(c)
+		h.renderLoggedIn(c, http.StatusOK, session, nil)
 		return
 	}
 
+	login := h.conf.Login
+	login.BasePath = h.getBasePath(c)
+	tmplCtx := pongo2.Context{"login": login}
 	tmplCtx["redirect"], _ = c.GetQuery("redir")
 	c.HTML(http.StatusOK, "login.htmpl", tmplCtx)
 	logTemplateErrors(c)
@@ -182,22 +188,22 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 		if idParam, _ := c.GetQuery("id"); idParam != "" {
 			id, err := ulid.ParseStrict(idParam)
 			if err != nil {
-				// TODO: render error page!
-				c.JSON(http.StatusBadRequest, WebError{err.Error()})
+				alert := ui.Alert{Level: ui.AlertDanger, Heading: "invalid Session", Message: err.Error()}
+				h.renderLoggedIn(c, http.StatusBadRequest, session, []ui.Alert{alert})
 				return
 			}
 			if err = h.cookies.RevokeID(session.Username, id); err != nil {
-				// TODO: render error page!
-				c.JSON(http.StatusInternalServerError, WebError{err.Error()})
+				alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
+				h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
 				return
 			}
-			c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login"))
+			h.renderLoggedIn(c, http.StatusOK, session, nil)
 			return
 		}
 
 		if err = h.cookies.Revoke(*session); err != nil {
-			// TODO: render error page!
-			c.JSON(http.StatusInternalServerError, WebError{err.Error()})
+			alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
+			h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
 			return
 		}
 	}
