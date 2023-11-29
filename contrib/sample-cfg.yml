@@ -35,10 +35,11 @@ cookie:
     # gc-interval: 5m
     # sync:
     #   interval: 10s
-    #   base-url: http://localhost:1234
+    #   base-url: https://localhost:1234
     #   token: this-is-a-very-secret-token
     #   tls:
     #     insecure-skip-verify: true
+    #     server-name: login.example.com
     #     ca-certificates-data: |
     #       -----BEGIN CERTIFICATE-----
     #       ...
