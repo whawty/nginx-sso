@@ -342,7 +342,7 @@ func (st *Store) initBackend(conf *Config) (err error) {
 			return
 		}
 		if conf.Backend.Sync.Interval <= time.Second {
-			st.infoLog.Printf("cookie-store: overriding invalid/unset GC interval to 10 seconds")
+			st.infoLog.Printf("cookie-store: overriding invalid/unset sync interval to 10 seconds")
 			conf.Backend.Sync.Interval = 10 * time.Second
 		}
 		if conf.Backend.Sync.TLSConfig != nil {
