@@ -48,7 +48,9 @@ cookie:
     #       -----END CERTIFICATE-----
     #     ca-certificates:
     #     - root-ca.pem
-    in-memory: {}
+    # in-memory: {}
+    bolt:
+      path: ./contrib/db.bolt
 
 auth:
   static:

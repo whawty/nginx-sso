@@ -65,6 +65,7 @@ type StoreBackendConfig struct {
 	GCInterval time.Duration          `yaml:"gc-interval"`
 	Sync       *StoreSyncConfig       `yaml:"sync"`
 	InMemory   *InMemoryBackendConfig `yaml:"in-memory"`
+	Bolt       *BoltBackendConfig     `yaml:"bolt"`
 }
 
 type Config struct {
@@ -354,7 +355,12 @@ func (st *Store) initBackend(conf *Config) (err error) {
 			return err
 		}
 	}
-	// TODO: add other backend types
+	if conf.Backend.Bolt != nil {
+		st.backend, err = NewBoltBackend(conf.Backend.Bolt)
+		if err != nil {
+			return err
+		}
+	}
 	if st.backend == nil {
 		err = fmt.Errorf("no valid backend configuration found")
 		return

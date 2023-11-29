@@ -41,6 +41,7 @@ require (
 	github.com/urfave/cli v1.22.14 // indirect
 	github.com/whawty/auth v0.0.0-20231022191511-61550f485af0 // indirect
 	gitlab.com/go-box/pongo2gin/v6 v6.0.4 // indirect
+	go.etcd.io/bbolt v1.3.8 // indirect
 	golang.org/x/arch v0.5.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
