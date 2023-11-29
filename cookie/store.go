@@ -57,6 +57,7 @@ type SignerVerifierConfig struct {
 type StoreSyncConfig struct {
 	Interval  time.Duration        `yaml:"interval"`
 	BaseURL   string               `yaml:"base-url"`
+	HTTPHost  string               `yaml:"http-host"`
 	TLSConfig *tlsconfig.TLSConfig `yaml:"tls"`
 	Token     string               `yaml:"token"`
 }
@@ -264,8 +265,9 @@ func (st *Store) verifyAndDecodeSignedRevocationList(signed SignedRevocationList
 	return
 }
 
-func (st *Store) syncRevocations(client *http.Client, syncBaseURL *url.URL, token string) {
-	req, _ := http.NewRequest("GET", syncBaseURL.JoinPath("revocations").String(), nil)
+func (st *Store) syncRevocations(client *http.Client, baseURL *url.URL, host, token string) {
+	req, _ := http.NewRequest("GET", baseURL.JoinPath("revocations").String(), nil)
+	req.Host = host
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -301,11 +303,11 @@ func (st *Store) syncRevocations(client *http.Client, syncBaseURL *url.URL, toke
 	}
 }
 
-func (st *Store) runSync(interval time.Duration, syncBaseURL *url.URL, tlsConfig *tls.Config, token string) {
+func (st *Store) runSync(interval time.Duration, baseURL *url.URL, host string, tlsConfig *tls.Config, token string) {
 	client := &http.Client{}
-	switch syncBaseURL.Scheme {
+	switch baseURL.Scheme {
 	case "http":
-		st.infoLog.Printf("sync-store: using insecure url for sync: %s", syncBaseURL.String())
+		st.infoLog.Printf("sync-store: using insecure url for sync: %s", baseURL.String())
 	case "https":
 		if tlsConfig != nil {
 			client.Transport = &http.Transport{TLSClientConfig: tlsConfig}
@@ -322,7 +324,7 @@ func (st *Store) runSync(interval time.Duration, syncBaseURL *url.URL, tlsConfig
 			st.infoLog.Printf("cookie-store: stopping sync because ticker-channel is closed")
 			return
 		}
-		st.syncRevocations(client, syncBaseURL, token)
+		st.syncRevocations(client, baseURL, host, token)
 	}
 }
 
@@ -371,7 +373,7 @@ func (st *Store) initBackend(conf *Config) (err error) {
 
 	go st.runGC(conf.Backend.GCInterval)
 	if conf.Backend.Sync != nil {
-		go st.runSync(conf.Backend.Sync.Interval, syncBaseURL, syncTLSConfig, conf.Backend.Sync.Token)
+		go st.runSync(conf.Backend.Sync.Interval, syncBaseURL, conf.Backend.Sync.HTTPHost, syncTLSConfig, conf.Backend.Sync.Token)
 	}
 	return
 }

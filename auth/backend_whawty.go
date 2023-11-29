@@ -53,18 +53,20 @@ type WhawtyAuthConfig struct {
 	ConfigFile     string `yaml:"store"`
 	AutoReload     bool   `yaml:"autoreload"`
 	RemoteUpgrades *struct {
-		URL string               `yaml:"url"`
-		TLS *tlsconfig.TLSConfig `yaml:"tls"`
+		URL      string               `yaml:"url"`
+		HTTPHost string               `yaml:"http-host"`
+		TLS      *tlsconfig.TLSConfig `yaml:"tls"`
 	} `yaml:"remote-upgrades"`
 }
 
 type WhawtyAuthBackend struct {
-	store          *store.Dir
-	storeMutex     sync.RWMutex
-	upgradeChan    chan whawtyUpgradeRequest
-	upgradeTLSConf *tls.Config
-	infoLog        *log.Logger
-	dbgLog         *log.Logger
+	store           *store.Dir
+	storeMutex      sync.RWMutex
+	upgradeChan     chan whawtyUpgradeRequest
+	upgradeHTTPHost string
+	upgradeTLSConf  *tls.Config
+	infoLog         *log.Logger
+	dbgLog          *log.Logger
 }
 
 func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (Backend, error) {
@@ -85,6 +87,7 @@ func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (
 				return nil, fmt.Errorf("whawty-auth: remote-upgrade: %v", err)
 			}
 		}
+		b.upgradeHTTPHost = conf.RemoteUpgrades.HTTPHost
 		err = b.runRemoteUpgrader(conf.RemoteUpgrades.URL)
 		if err != nil {
 			return nil, err
@@ -104,13 +107,14 @@ type whawtyUpgradeRequest struct {
 	NewPassword string `json:"newpassword,omitempty"`
 }
 
-func remoteHTTPUpgrade(upgrade whawtyUpgradeRequest, remote string, client *http.Client, infoLog, dbgLog *log.Logger) {
+func remoteHTTPUpgrade(upgrade whawtyUpgradeRequest, remote, httpHost string, client *http.Client, infoLog, dbgLog *log.Logger) {
 	reqdata, err := json.Marshal(upgrade)
 	if err != nil {
 		infoLog.Printf("whawty-auth: error while encoding remote-upgrade request: %v", err)
 		return
 	}
 	req, _ := http.NewRequest("POST", remote, bytes.NewReader(reqdata))
+	req.Host = httpHost
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
@@ -124,7 +128,7 @@ func remoteHTTPUpgrade(upgrade whawtyUpgradeRequest, remote string, client *http
 	}
 }
 
-func remoteHTTPUpgrader(upgradeChan <-chan whawtyUpgradeRequest, remote string, client *http.Client, infoLog, dbgLog *log.Logger) {
+func remoteHTTPUpgrader(upgradeChan <-chan whawtyUpgradeRequest, remote, httpHost string, client *http.Client, infoLog, dbgLog *log.Logger) {
 	sem := make(chan bool, MaxConcurrentRemoteUpgrades)
 	for upgrade := range upgradeChan {
 		select {
@@ -132,7 +136,7 @@ func remoteHTTPUpgrader(upgradeChan <-chan whawtyUpgradeRequest, remote string, 
 			dbgLog.Printf("whawty-auth: upgrading '%s' via %s", upgrade.Username, remote)
 			go func(upgrade whawtyUpgradeRequest, remote string) {
 				defer func() { <-sem }()
-				remoteHTTPUpgrade(upgrade, remote, client, infoLog, dbgLog)
+				remoteHTTPUpgrade(upgrade, remote, httpHost, client, infoLog, dbgLog)
 			}(upgrade, remote)
 		default:
 			dbgLog.Printf("whawty-auth: ignoring upgrade request for '%s' due to rate-limiting", upgrade.Username)
@@ -162,7 +166,7 @@ func (b *WhawtyAuthBackend) runRemoteUpgrader(remote string) error {
 	default:
 		return fmt.Errorf("whawty-auth: invalid upgrade url: %s", remote)
 	}
-	go remoteHTTPUpgrader(b.upgradeChan, remote, httpClient, b.infoLog, b.dbgLog)
+	go remoteHTTPUpgrader(b.upgradeChan, remote, b.upgradeHTTPHost, httpClient, b.infoLog, b.dbgLog)
 	return nil
 }
 

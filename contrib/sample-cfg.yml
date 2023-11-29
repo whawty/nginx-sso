@@ -36,6 +36,7 @@ cookie:
     # sync:
     #   interval: 10s
     #   base-url: https://localhost:1234
+    #   http-host: login.example.com
     #   token: this-is-a-very-secret-token
     #   tls:
     #     insecure-skip-verify: true
@@ -62,8 +63,10 @@ auth:
   #   autoreload: yes
   #   remote-upgrades:
   #     url: http://127.0.0.1:2345/api/update
+  #     http-host: passwd.example.com
   #     tls:
   #       insecure-skip-verify: true
+  #       server-name: passwd.example.com
   #       ca-certificates-data: |
   #         -----BEGIN CERTIFICATE-----
   #         ...
