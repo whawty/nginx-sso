@@ -60,6 +60,9 @@ type BoltBackend struct {
 func NewBoltBackend(conf *BoltBackendConfig) (*BoltBackend, error) {
 	db, err := bolt.Open(conf.Path, 0600, &bolt.Options{Timeout: time.Second})
 	if err != nil {
+		if err == bolt.ErrTimeout {
+			return nil, fmt.Errorf("failed to acquire exclusive-lock for bolt-database: %s", conf.Path)
+		}
 		return nil, err
 	}
 
@@ -74,6 +77,10 @@ func NewBoltBackend(conf *BoltBackendConfig) (*BoltBackend, error) {
 	})
 
 	return &BoltBackend{db: db}, nil
+}
+
+func (b *BoltBackend) Name() string {
+	return fmt.Sprintf("bolt(%s)", b.db.Path())
 }
 
 func (b *BoltBackend) Save(session SessionFull) error {
@@ -135,10 +142,6 @@ func (b *BoltBackend) Revoke(session Session) error {
 		if sessions == nil {
 			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist!")
 		}
-		user := sessions.Bucket([]byte(session.Username))
-		if user == nil {
-			return nil
-		}
 
 		revoked := tx.Bucket([]byte(BoltRevokedBucket))
 		if revoked == nil {
@@ -150,8 +153,10 @@ func (b *BoltBackend) Revoke(session Session) error {
 			return err
 		}
 
-		if err := user.Delete(session.ID.Bytes()); err != nil {
-			return err
+		if user := sessions.Bucket([]byte(session.Username)); user != nil {
+			if err := user.Delete(session.ID.Bytes()); err != nil {
+				return err
+			}
 		}
 		return revoked.Put(session.ID.Bytes(), value)
 	})
@@ -167,9 +172,19 @@ func (b *BoltBackend) RevokeID(username string, id ulid.ULID) error {
 		if user == nil {
 			return nil
 		}
-		session := user.Get(id.Bytes())
-		if session == nil {
+		value := user.Get(id.Bytes())
+		if value == nil {
 			return nil
+		}
+		// value actually contains an encoded BoltSession, we deliberately unmarshal
+		// a SessionBase to strip the AgentInfo from it
+		var session SessionBase
+		err := json.Unmarshal(value, &session)
+		if err != nil {
+			return err
+		}
+		if value, err = json.Marshal(session); err != nil {
+			return err
 		}
 
 		revoked := tx.Bucket([]byte(BoltRevokedBucket))
@@ -180,7 +195,7 @@ func (b *BoltBackend) RevokeID(username string, id ulid.ULID) error {
 		if err := user.Delete(id.Bytes()); err != nil {
 			return err
 		}
-		return revoked.Put(id.Bytes(), session)
+		return revoked.Put(id.Bytes(), value)
 	})
 }
 
@@ -242,6 +257,15 @@ func (b *BoltBackend) LoadRevocations(list SessionList) (cnt uint, err error) {
 func (b *BoltBackend) CollectGarbage() (cnt uint, err error) {
 	cnt = 0
 	err = b.db.Update(func(tx *bolt.Tx) error {
+		// https://github.com/etcd-io/bbolt/issues/146#issuecomment-919299859
+		// for key, value := cursor.First(); key != nil; {
+		// 	if shouldDelete(v) && cursor.Delete() == nil {
+		// 		key, value = cursor.Seek(key)
+		// 	} else {
+		// 		key, value = cursor.Next()
+		// 	}
+		// }
+
 		// TODO: implement this!!
 		// for _, sessions := range b.sessions {
 		// 	for id, session := range sessions {

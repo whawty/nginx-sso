@@ -136,6 +136,7 @@ type SignedRevocationList struct {
 }
 
 type StoreBackend interface {
+	Name() string
 	Save(session SessionFull) error
 	ListUser(username string) (SessionFullList, error)
 	Revoke(session Session) error
@@ -193,7 +194,7 @@ func NewStore(conf *Config, infoLog, dbgLog *log.Logger) (*Store, error) {
 		st.infoLog.Printf("cookie-store: failed to initialize backend: %v", err)
 		return nil, err
 	}
-	st.infoLog.Printf("cookie-store: successfully initialized (%d keys loaded)", len(st.keys))
+	st.infoLog.Printf("cookie-store: successfully initialized (%d keys loaded) using backend: %s", len(st.keys), st.backend.Name())
 	if st.signer == nil {
 		st.infoLog.Printf("cookie-store: no signing key has been loaded - this instance can only verify cookies")
 	}

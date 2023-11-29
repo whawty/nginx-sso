@@ -60,6 +60,10 @@ func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
 	return m, nil
 }
 
+func (b *InMemoryBackend) Name() string {
+	return "in-memory"
+}
+
 func (b *InMemoryBackend) Save(session SessionFull) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
