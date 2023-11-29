@@ -129,7 +129,9 @@ func (b *BoltBackend) ListUser(username string) (list SessionFullList, err error
 			if err := json.Unmarshal(value, &session); err != nil {
 				return err
 			}
-			list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
+			if !session.SessionBase.IsExpired() {
+				list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
+			}
 		}
 		return nil
 	})
@@ -232,7 +234,9 @@ func (b *BoltBackend) ListRevoked() (list SessionList, err error) {
 			if err := json.Unmarshal(value, &session); err != nil {
 				return err
 			}
-			list = append(list, Session{ID: id, SessionBase: session})
+			if !session.IsExpired() {
+				list = append(list, Session{ID: id, SessionBase: session})
+			}
 		}
 		return nil
 	})

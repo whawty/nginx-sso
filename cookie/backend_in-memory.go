@@ -89,7 +89,9 @@ func (b *InMemoryBackend) ListUser(username string) (list SessionFullList, err e
 		return
 	}
 	for id, session := range sessions {
-		list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
+		if !session.SessionBase.IsExpired() {
+			list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
+		}
 	}
 	return
 }
@@ -135,7 +137,9 @@ func (b *InMemoryBackend) ListRevoked() (list SessionList, err error) {
 	defer b.mutex.RUnlock()
 
 	for id, session := range b.revoked {
-		list = append(list, Session{ID: id, SessionBase: session})
+		if !session.IsExpired() {
+			list = append(list, Session{ID: id, SessionBase: session})
+		}
 	}
 	return
 }
