@@ -233,6 +233,7 @@ func (st *Store) runGC(interval time.Duration) {
 	st.dbgLog.Printf("cookie-store: running GC every %v", interval)
 	for {
 		if _, ok := <-t.C; !ok {
+			st.infoLog.Printf("cookie-store: stopping GC because ticker-channel is closed")
 			return
 		}
 		cnt, err := st.backend.CollectGarbage()
@@ -318,6 +319,7 @@ func (st *Store) runSync(interval time.Duration, syncBaseURL *url.URL, tlsConfig
 	st.dbgLog.Printf("cookie-store: running sync every %v", interval)
 	for {
 		if _, ok := <-t.C; !ok {
+			st.infoLog.Printf("cookie-store: stopping sync because ticker-channel is closed")
 			return
 		}
 		st.syncRevocations(client, syncBaseURL, token)

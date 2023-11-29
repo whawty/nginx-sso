@@ -242,45 +242,84 @@ func (b *BoltBackend) ListRevoked() (list SessionList, err error) {
 func (b *BoltBackend) LoadRevocations(list SessionList) (cnt uint, err error) {
 	cnt = 0
 	err = b.db.Update(func(tx *bolt.Tx) error {
-		// TODO: implement this!!
-		// for _, session := range list {
-		// 	if _, exists := b.revoked[session.ID]; !exists {
-		// 		b.revoked[session.ID] = session.SessionBase
-		// 		cnt = cnt + 1
-		// 	}
-		// }
+		revoked := tx.Bucket([]byte(BoltRevokedBucket))
+		if revoked == nil {
+			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist!")
+		}
+
+		for _, session := range list {
+			if s := revoked.Get(session.ID.Bytes()); s == nil {
+				value, err := json.Marshal(session)
+				if err != nil {
+					return err
+				}
+				if err = revoked.Put(session.ID.Bytes(), value); err != nil {
+					return err
+				}
+				cnt = cnt + 1
+			}
+		}
 		return nil
 	})
+	return
+}
+
+func deleteExpired(tx *bolt.Tx, c *bolt.Cursor) (cnt uint, err error) {
+	cnt = 0
+	// https://github.com/etcd-io/bbolt/issues/146#issuecomment-919299859
+	for key, value := c.First(); key != nil; {
+		// depending on the bucket this cursor is coming from, value might contain a
+		// BoltSession or just a SessionBase. But since BoltSession nests SessionBase
+		// and we are only interested in expiry anyway we can get away with just
+		// unmarshalling SessionBase.
+		var session SessionBase
+		if err = json.Unmarshal(value, &session); err != nil {
+			return
+		}
+		if session.IsExpired() {
+			if err = c.Delete(); err != nil {
+				return
+			}
+			cnt = cnt + 1
+			key, value = c.Seek(key)
+		} else {
+			key, value = c.Next()
+		}
+	}
 	return
 }
 
 func (b *BoltBackend) CollectGarbage() (cnt uint, err error) {
 	cnt = 0
 	err = b.db.Update(func(tx *bolt.Tx) error {
-		// https://github.com/etcd-io/bbolt/issues/146#issuecomment-919299859
-		// for key, value := cursor.First(); key != nil; {
-		// 	if shouldDelete(v) && cursor.Delete() == nil {
-		// 		key, value = cursor.Seek(key)
-		// 	} else {
-		// 		key, value = cursor.Next()
-		// 	}
-		// }
+		sessions := tx.Bucket([]byte(BoltSessionsBucket))
+		if sessions == nil {
+			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist!")
+		}
 
-		// TODO: implement this!!
-		// for _, sessions := range b.sessions {
-		// 	for id, session := range sessions {
-		// 		if session.IsExpired() {
-		// 			delete(sessions, id)
-		// 			cnt = cnt + 1
-		// 		}
-		// 	}
-		// }
-		// for id, session := range b.revoked {
-		// 	if session.IsExpired() {
-		// 		delete(b.revoked, id)
-		// 	}
-		// }
-		return nil
+		err := sessions.ForEachBucket(func(username []byte) error {
+			user := sessions.Bucket(username)
+			if user == nil {
+				return nil
+			}
+			tmp, err := deleteExpired(tx, user.Cursor())
+			if err != nil {
+				return err
+			}
+			cnt = cnt + tmp
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		revoked := tx.Bucket([]byte(BoltRevokedBucket))
+		if revoked == nil {
+			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist!")
+		}
+
+		_, err = deleteExpired(tx, revoked.Cursor())
+		return err
 	})
 	return
 }
