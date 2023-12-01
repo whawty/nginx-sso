@@ -31,77 +31,58 @@
 package main
 
 import (
-	"io/ioutil"
-	"log"
-	"os"
+	"net"
+	"net/http"
 
-	"github.com/urfave/cli"
-	"github.com/whawty/nginx-sso/auth"
-	"github.com/whawty/nginx-sso/cookie"
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var (
-	wl  = log.New(os.Stdout, "[whawty.nginx-sso]\t", log.LstdFlags)
-	wdl = log.New(ioutil.Discard, "[whawty.nginx-sso dbg]\t", log.LstdFlags)
-)
-
-func init() {
-	if _, exists := os.LookupEnv("WHAWTY_NGINX_SSO_DEBUG"); exists {
-		wdl.SetOutput(os.Stderr)
-	}
+type MetricsHandler struct {
+	registry *prometheus.Registry
+	listener net.Listener
+	path     string
 }
 
-func cmdRun(c *cli.Context) error {
-	conf, err := readConfig(c.GlobalString("config"))
-	if err != nil {
-		return cli.NewExitError(err.Error(), 1)
+func newMetricsHandler(config *PrometheusConfig) (m *MetricsHandler, err error) {
+	m = &MetricsHandler{}
+	if config == nil {
+		return
+	}
+	m.registry = prometheus.NewRegistry()
+	m.path = "/metrics"
+	if config.Path != "" {
+		m.path = config.Path
+	}
+	if config.Listen != "" {
+		m.listener, err = net.Listen("tcp", config.Listen)
+		if err != nil {
+			return
+		}
+		wl.Printf("prometheus: listening on '%s'", config.Listen)
 	}
 
-	prom, err := newMetricsHandler(conf.Prometheus)
-	if err != nil {
-		return cli.NewExitError(err.Error(), 2)
-	}
-
-	cookies, err := cookie.NewStore(&conf.Cookie, wl, wdl)
-	if err != nil {
-		return cli.NewExitError(err.Error(), 2)
-	}
-
-	auth, err := auth.NewBackend(&conf.Auth, wl, wdl)
-	if err != nil {
-		return cli.NewExitError(err.Error(), 2)
-	}
-
-	go prom.run()
-
-	if err := runWeb(&conf.Web, prom, cookies, auth); err != nil {
-		return cli.NewExitError(err.Error(), 4)
-	}
-
-	return nil
+	m.registry.MustRegister(collectors.NewBuildInfoCollector())
+	return
 }
 
-func main() {
-	app := cli.NewApp()
-	app.Name = "whawty-nginx-sso"
-	app.Version = "0.1"
-	app.Usage = "simple SSO for nginx"
-	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:   "config",
-			Value:  "/etc/whawty/nginx-sso.yaml",
-			Usage:  "path to the configuration file",
-			EnvVar: "WHAWTY_NGINX_SSO_CONFIG",
-		},
+func (m *MetricsHandler) install(r *gin.Engine) {
+	if m.registry == nil || m.listener != nil {
+		return
 	}
-	app.Commands = []cli.Command{
-		{
-			Name:   "run",
-			Usage:  "run the sso backend",
-			Action: cmdRun,
-		},
+	r.GET(m.path, gin.WrapH(promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})))
+}
+
+func (m *MetricsHandler) run() {
+	if m.registry == nil || m.listener == nil {
+		return
 	}
 
-	wdl.Printf("calling app.Run()")
-	app.Run(os.Args)
+	mux := http.NewServeMux()
+	mux.Handle(m.path, promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{}))
+	srv := &http.Server{Handler: mux}
+	err := srv.Serve(m.listener)
+	wl.Printf("prometheus: listener thread has stopped (err=%v)", err)
 }

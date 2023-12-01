@@ -55,10 +55,16 @@ type WebConfig struct {
 	} `yaml:"revocations"`
 }
 
+type PrometheusConfig struct {
+	Listen string `yaml:"listen"`
+	Path   string `yaml:"path"`
+}
+
 type Config struct {
-	Web    WebConfig     `yaml:"web"`
-	Cookie cookie.Config `yaml:"cookie"`
-	Auth   auth.Config   `yaml:"auth"`
+	Web        WebConfig         `yaml:"web"`
+	Cookie     cookie.Config     `yaml:"cookie"`
+	Auth       auth.Config       `yaml:"auth"`
+	Prometheus *PrometheusConfig `yaml:"prometheus"`
 }
 
 func readConfig(configfile string) (*Config, error) {

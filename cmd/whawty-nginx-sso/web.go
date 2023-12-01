@@ -261,7 +261,7 @@ func (h *HandlerContext) handleRevocations(c *gin.Context) {
 	c.JSON(http.StatusOK, revocations)
 }
 
-func runWeb(config *WebConfig, cookies *cookie.Store, auth auth.Backend) (err error) {
+func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth auth.Backend) (err error) {
 	if config.Listen == "" {
 		config.Listen = ":http"
 	}
@@ -297,6 +297,7 @@ func runWeb(config *WebConfig, cookies *cookie.Store, auth auth.Backend) (err er
 	r.GET("/logout", h.handleLogout)
 	r.GET("/sessions", h.handleSessions)
 	r.GET("/revocations", h.handleRevocations)
+	prom.install(r)
 
 	listener, err := net.Listen("tcp", config.Listen)
 	if err != nil {
