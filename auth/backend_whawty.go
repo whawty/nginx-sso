@@ -50,6 +50,14 @@ const (
 	MaxConcurrentRemoteUpgrades = 10
 )
 
+var (
+	whawtyRemoteUpgrades        = prometheus.NewCounterVec(prometheus.CounterOpts{Subsystem: metricsSubsystem, Name: "whawty_remote_upgrades_total"}, []string{"result"})
+	whawtyRemoteUpgradesSuccess = whawtyRemoteUpgrades.MustCurryWith(prometheus.Labels{"result": "success"})
+	whawtyRemoteUpgradesFailed  = whawtyRemoteUpgrades.MustCurryWith(prometheus.Labels{"result": "failed"})
+	whawtyReloadFailed          = prometheus.NewGauge(prometheus.GaugeOpts{Subsystem: metricsSubsystem, Name: "whawty_reload_failed"})
+	whawtyReloadLastSuccess     = prometheus.NewGauge(prometheus.GaugeOpts{Subsystem: metricsSubsystem, Name: "whawty_successful_reload_timestamp_seconds"})
+)
+
 type WhawtyAuthConfig struct {
 	ConfigFile     string `yaml:"store"`
 	AutoReload     bool   `yaml:"autoreload"`
@@ -95,6 +103,7 @@ func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, prom prometheus.Registerer, in
 		}
 	}
 	if conf.AutoReload {
+		whawtyReloadLastSuccess.SetToCurrentTime()
 		runFileWatcher([]string{conf.ConfigFile}, b.watchFileErrorCB, b.watchFileEventCB)
 	}
 	if prom != nil {
@@ -117,6 +126,7 @@ type whawtyUpgradeRequest struct {
 func remoteHTTPUpgrade(upgrade whawtyUpgradeRequest, remote, httpHost string, client *http.Client, infoLog, dbgLog *log.Logger) {
 	reqdata, err := json.Marshal(upgrade)
 	if err != nil {
+		whawtyRemoteUpgradesFailed.WithLabelValues().Inc()
 		infoLog.Printf("whawty-auth: error while encoding remote-upgrade request: %v", err)
 		return
 	}
@@ -125,12 +135,15 @@ func remoteHTTPUpgrade(upgrade whawtyUpgradeRequest, remote, httpHost string, cl
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
+		whawtyRemoteUpgradesFailed.WithLabelValues().Inc()
 		infoLog.Printf("whawty-auth: error sending remote-upgrade request: %v", err)
 		return
 	}
 	if resp.StatusCode != http.StatusOK {
+		whawtyRemoteUpgradesFailed.WithLabelValues().Inc()
 		infoLog.Printf("whawty-auth: remote-upgrade: failed for '%s' with status: %s", upgrade.Username, resp.Status)
 	} else {
+		whawtyRemoteUpgradesSuccess.WithLabelValues().Inc()
 		dbgLog.Printf("whawty-auth: successfully upgraded '%s'", upgrade.Username)
 	}
 }
@@ -184,10 +197,12 @@ func (b *WhawtyAuthBackend) watchFileErrorCB(err error) {
 func (b *WhawtyAuthBackend) watchFileEventCB(event fsnotify.Event) {
 	newdir, err := store.NewDirFromConfig(event.Name)
 	if err != nil {
+		whawtyReloadFailed.Set(1)
 		b.infoLog.Printf("whawty-auth: reloading store failed: %v, keeping current configuration", err)
 		return
 	}
 	if err := newdir.Check(); err != nil {
+		whawtyReloadFailed.Set(1)
 		b.infoLog.Printf("whawty-auth: reloading store failed: %v, keeping current configuration", err)
 		return
 	}
@@ -195,17 +210,27 @@ func (b *WhawtyAuthBackend) watchFileEventCB(event fsnotify.Event) {
 	b.storeMutex.Lock()
 	defer b.storeMutex.Unlock()
 	b.store = newdir
+	whawtyReloadFailed.Set(0)
+	whawtyReloadLastSuccess.SetToCurrentTime()
 	b.infoLog.Printf("whawty-auth: successfully reloaded from: %s (%d parameter-sets loaded)", event.Name, len(b.store.Params))
 }
 
-func (b *WhawtyAuthBackend) initPrometheus(prom prometheus.Registerer) error {
-	// TODO: add custom metrics
+func (b *WhawtyAuthBackend) initPrometheus(prom prometheus.Registerer) (err error) {
+	if err = prom.Register(whawtyRemoteUpgrades); err != nil {
+		return
+	}
+	whawtyRemoteUpgradesSuccess.WithLabelValues()
+	whawtyRemoteUpgradesFailed.WithLabelValues()
+	if err = prom.Register(whawtyReloadFailed); err != nil {
+		return
+	}
+	if err = prom.Register(whawtyReloadLastSuccess); err != nil {
+		return
+	}
 	return metricsCommon(prom)
 }
 
 func (b *WhawtyAuthBackend) Authenticate(username, password string) error {
-	//authRequests.Inc()
-
 	b.storeMutex.RLock()
 	defer b.storeMutex.RUnlock()
 	ok, _, upgradeable, _, err := b.store.Authenticate(username, password)

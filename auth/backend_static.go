@@ -39,6 +39,11 @@ import (
 	"github.com/tg123/go-htpasswd"
 )
 
+var (
+	staticReloadFailed      = prometheus.NewGauge(prometheus.GaugeOpts{Subsystem: metricsSubsystem, Name: "static_reload_failed"})
+	staticReloadLastSuccess = prometheus.NewGauge(prometheus.GaugeOpts{Subsystem: metricsSubsystem, Name: "static_successful_reload_timestamp_seconds"})
+)
+
 type StaticConfig struct {
 	HTPasswd   string `yaml:"htpasswd"`
 	AutoReload bool   `yaml:"autoreload"`
@@ -61,6 +66,7 @@ func NewStaticBackend(conf *StaticConfig, prom prometheus.Registerer, infoLog, d
 
 	b := &StaticBackend{htpasswd: file, infoLog: infoLog, dbgLog: dbgLog}
 	if conf.AutoReload {
+		staticReloadLastSuccess.SetToCurrentTime()
 		runFileWatcher([]string{conf.HTPasswd}, b.watchFileErrorCB, b.watchFileEventCB)
 	}
 	if prom != nil {
@@ -78,18 +84,32 @@ func (b *StaticBackend) watchFileErrorCB(err error) {
 }
 
 func (b *StaticBackend) watchFileEventCB(event fsnotify.Event) {
+	invalidLines := 0
 	err := b.htpasswd.Reload(func(err error) {
-		b.dbgLog.Printf("static: found invalid line: %v", err)
+		invalidLines = invalidLines + 1
 	})
 	if err != nil {
+		staticReloadFailed.Set(1)
 		b.infoLog.Printf("static: reloading htpasswd file failed: %v, keeping current database", err)
 		return
 	}
+	staticReloadLastSuccess.SetToCurrentTime()
+	if invalidLines > 0 {
+		staticReloadFailed.Set(1)
+		b.infoLog.Printf("static: reloading htpasswd file was successful but %d invalid lines have been ignored", invalidLines)
+		return
+	}
+	staticReloadFailed.Set(0)
 	b.dbgLog.Printf("static: htpasswd file successfully reloaded")
 }
 
 func (b *StaticBackend) initPrometheus(prom prometheus.Registerer) (err error) {
-	// TODO: add custom metrics
+	if err = prom.Register(staticReloadFailed); err != nil {
+		return
+	}
+	if err = prom.Register(staticReloadLastSuccess); err != nil {
+		return
+	}
 	return metricsCommon(prom)
 }
 

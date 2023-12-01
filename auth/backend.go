@@ -38,17 +38,21 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	metricsSubsystem = "auth"
+)
+
+var (
+	authRequests        = prometheus.NewCounterVec(prometheus.CounterOpts{Subsystem: metricsSubsystem, Name: "requests_total"}, []string{"result"})
+	authRequestsSuccess = authRequests.MustCurryWith(prometheus.Labels{"result": "success"})
+	authRequestsFailed  = authRequests.MustCurryWith(prometheus.Labels{"result": "failed"})
+)
+
 type Config struct {
 	LDAP   *LDAPConfig       `yaml:"ldap"`
 	Static *StaticConfig     `yaml:"static"`
 	Whawty *WhawtyAuthConfig `yaml:"whawty"`
 }
-
-var (
-	authRequests        = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "auth_requests_total"}, []string{"result"})
-	authRequestsSuccess = authRequests.MustCurryWith(prometheus.Labels{"result": "success"})
-	authRequestsFailed  = authRequests.MustCurryWith(prometheus.Labels{"result": "failed"})
-)
 
 type Backend interface {
 	Authenticate(username, password string) error
