@@ -20,12 +20,13 @@ At the moment whawty-nginx-sso has support for 3 authentication backends
  * [whawty-auth](https://github.com/whawty/auth) (including support for remote-upgrades)
  * LDAP
 
+The built-in web UI also allows users to list all currently valid sessions as well as logout
+buttons that allow the user to revoke any active session. Prematurely revoked session will then
+be synced to all verify-only instances to make sure those session cookies will no longer be
+accepted.
+
 For now whawty-nginx-sso only supports username and passwords but there are plans to support
 multi-factor authentication as long as the authentication backend supports it.
-Also it is currently not possible to invalidate active sessions. This means that cookies stay
-valid until they reach their pre-determined lifetime. Keep this in mind when configuring the
-cookie expiry duration. However the goal of the project is to implement a scheme to prematurely
-expire cookies before the 1.0 release.
 
 
 ## License
