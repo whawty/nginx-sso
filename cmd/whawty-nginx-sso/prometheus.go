@@ -41,9 +41,10 @@ import (
 )
 
 type MetricsHandler struct {
-	registry *prometheus.Registry
-	listener net.Listener
-	path     string
+	registry  *prometheus.Registry
+	namespace string
+	path      string
+	listener  net.Listener
 }
 
 func newMetricsHandler(config *PrometheusConfig) (m *MetricsHandler, err error) {
@@ -55,6 +56,10 @@ func newMetricsHandler(config *PrometheusConfig) (m *MetricsHandler, err error) 
 	m.path = "/metrics"
 	if config.Path != "" {
 		m.path = config.Path
+	}
+	m.namespace = "whawty_nginx_sso"
+	if config.Namespace != "" {
+		m.namespace = config.Namespace
 	}
 	if config.Listen != "" {
 		m.listener, err = net.Listen("tcp", config.Listen)
@@ -85,4 +90,8 @@ func (m *MetricsHandler) run() {
 	srv := &http.Server{Handler: mux}
 	err := srv.Serve(m.listener)
 	wl.Printf("prometheus: listener thread has stopped (err=%v)", err)
+}
+
+func (m *MetricsHandler) reg() prometheus.Registerer {
+	return prometheus.WrapRegistererWithPrefix(m.namespace+"_", m.registry)
 }

@@ -199,20 +199,25 @@ func (b *WhawtyAuthBackend) watchFileEventCB(event fsnotify.Event) {
 }
 
 func (b *WhawtyAuthBackend) initPrometheus(prom prometheus.Registerer) error {
-	// TODO: implement this!
-	return nil
+	// TODO: add custom metrics
+	return metricsCommon(prom)
 }
 
 func (b *WhawtyAuthBackend) Authenticate(username, password string) error {
+	//authRequests.Inc()
+
 	b.storeMutex.RLock()
 	defer b.storeMutex.RUnlock()
 	ok, _, upgradeable, _, err := b.store.Authenticate(username, password)
 	if err != nil {
+		authRequestsFailed.WithLabelValues().Inc()
 		return err
 	}
 	if !ok {
+		authRequestsFailed.WithLabelValues().Inc()
 		return fmt.Errorf("invalid username or password")
 	}
+	authRequestsSuccess.WithLabelValues().Inc()
 	if upgradeable && b.upgradeChan != nil {
 		select {
 		case b.upgradeChan <- whawtyUpgradeRequest{Username: username, OldPassword: password}:

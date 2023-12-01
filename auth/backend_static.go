@@ -88,15 +88,17 @@ func (b *StaticBackend) watchFileEventCB(event fsnotify.Event) {
 	b.dbgLog.Printf("static: htpasswd file successfully reloaded")
 }
 
-func (b *StaticBackend) initPrometheus(prom prometheus.Registerer) error {
-	// TODO: implement this!
-	return nil
+func (b *StaticBackend) initPrometheus(prom prometheus.Registerer) (err error) {
+	// TODO: add custom metrics
+	return metricsCommon(prom)
 }
 
 func (b *StaticBackend) Authenticate(username, password string) error {
 	ok := b.htpasswd.Match(username, password)
 	if !ok {
+		authRequestsFailed.WithLabelValues().Inc()
 		return fmt.Errorf("invalid username or password")
 	}
+	authRequestsSuccess.WithLabelValues().Inc()
 	return nil
 }

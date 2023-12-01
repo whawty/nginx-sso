@@ -56,8 +56,9 @@ type WebConfig struct {
 }
 
 type PrometheusConfig struct {
-	Listen string `yaml:"listen"`
-	Path   string `yaml:"path"`
+	Namespace string `yaml:"namespace"`
+	Path      string `yaml:"path"`
+	Listen    string `yaml:"listen"`
 }
 
 type Config struct {

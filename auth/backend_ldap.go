@@ -89,8 +89,8 @@ func NewLDAPBackend(conf *LDAPConfig, prom prometheus.Registerer, infoLog, dbgLo
 }
 
 func (b *LDAPBackend) initPrometheus(prom prometheus.Registerer) error {
-	// TODO: implement this!
-	return nil
+	// TODO: add custom metrics
+	return metricsCommon(prom)
 }
 
 func (b *LDAPBackend) getUserDN(l *ldap.Conn, username string) (string, bool, error) {
@@ -161,6 +161,7 @@ func (b *LDAPBackend) authenticate(server, username, password string) (bool, err
 func (b *LDAPBackend) Authenticate(username, password string) (err error) {
 	// make sure we don't trigger this: https://github.com/go-ldap/ldap/issues/93
 	if username == "" || password == "" {
+		authRequestsFailed.WithLabelValues().Inc()
 		return fmt.Errorf("username and or password must not be empty")
 	}
 
@@ -176,5 +177,10 @@ func (b *LDAPBackend) Authenticate(username, password string) (err error) {
 		}
 		last = server
 	}
-	return err
+	if err != nil {
+		authRequestsFailed.WithLabelValues().Inc()
+		return err
+	}
+	authRequestsSuccess.WithLabelValues().Inc()
+	return nil
 }

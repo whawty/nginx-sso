@@ -44,6 +44,12 @@ type Config struct {
 	Whawty *WhawtyAuthConfig `yaml:"whawty"`
 }
 
+var (
+	authRequests        = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "auth_requests_total"}, []string{"result"})
+	authRequestsSuccess = authRequests.MustCurryWith(prometheus.Labels{"result": "success"})
+	authRequestsFailed  = authRequests.MustCurryWith(prometheus.Labels{"result": "failed"})
+)
+
 type Backend interface {
 	Authenticate(username, password string) error
 }
@@ -53,6 +59,15 @@ type NullBackend struct {
 
 func (b *NullBackend) Authenticate(username, password string) error {
 	return fmt.Errorf("invalid username/password")
+}
+
+func metricsCommon(prom prometheus.Registerer) (err error) {
+	if err = prom.Register(authRequests); err != nil {
+		return
+	}
+	authRequestsSuccess.WithLabelValues()
+	authRequestsFailed.WithLabelValues()
+	return nil
 }
 
 func NewBackend(conf *Config, prom prometheus.Registerer, infoLog, dbgLog *log.Logger) (Backend, error) {

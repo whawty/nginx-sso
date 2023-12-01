@@ -164,5 +164,6 @@ web:
   #   # session-ticket-key: "b947e39f50e20351bdd81046e20fff7948d359a3aec391719d60645c5972cc77"
 
 prometheus: {}
+  # namespace: whawty_nginx_sso
   # path: /metrics
   # listen: "127.0.0.1:1235"
