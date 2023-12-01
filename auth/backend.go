@@ -34,6 +34,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Config struct {
@@ -53,7 +55,7 @@ func (b *NullBackend) Authenticate(username, password string) error {
 	return fmt.Errorf("invalid username/password")
 }
 
-func NewBackend(conf *Config, infoLog, dbgLog *log.Logger) (Backend, error) {
+func NewBackend(conf *Config, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (Backend, error) {
 	if infoLog == nil {
 		infoLog = log.New(io.Discard, "", 0)
 	}
@@ -62,13 +64,13 @@ func NewBackend(conf *Config, infoLog, dbgLog *log.Logger) (Backend, error) {
 	}
 
 	if conf.LDAP != nil {
-		return NewLDAPBackend(conf.LDAP, infoLog, dbgLog)
+		return NewLDAPBackend(conf.LDAP, prom, infoLog, dbgLog)
 	}
 	if conf.Static != nil {
-		return NewStaticBackend(conf.Static, infoLog, dbgLog)
+		return NewStaticBackend(conf.Static, prom, infoLog, dbgLog)
 	}
 	if conf.Whawty != nil {
-		return NewWhawtyAuthBackend(conf.Whawty, infoLog, dbgLog)
+		return NewWhawtyAuthBackend(conf.Whawty, prom, infoLog, dbgLog)
 	}
 	infoLog.Printf("auth: no valid backend configuration found - this instance will only verify cookies")
 	return &NullBackend{}, nil

@@ -41,6 +41,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spreadspace/tlsconfig"
 	"github.com/whawty/auth/store"
 )
@@ -69,7 +70,7 @@ type WhawtyAuthBackend struct {
 	dbgLog          *log.Logger
 }
 
-func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (Backend, error) {
+func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (Backend, error) {
 	s, err := store.NewDirFromConfig(conf.ConfigFile)
 	if err != nil {
 		infoLog.Printf("whawty-auth: failed to intialize store: %v", err)
@@ -95,6 +96,12 @@ func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, infoLog, dbgLog *log.Logger) (
 	}
 	if conf.AutoReload {
 		runFileWatcher([]string{conf.ConfigFile}, b.watchFileErrorCB, b.watchFileEventCB)
+	}
+	if prom != nil {
+		err = b.initPrometheus(prom)
+		if err != nil {
+			return nil, err
+		}
 	}
 	infoLog.Printf("whawty-auth: successfully intialized store at %s (%d parameter-sets loaded)", s.BaseDir, len(s.Params))
 	return b, nil
@@ -189,6 +196,11 @@ func (b *WhawtyAuthBackend) watchFileEventCB(event fsnotify.Event) {
 	defer b.storeMutex.Unlock()
 	b.store = newdir
 	b.infoLog.Printf("whawty-auth: successfully reloaded from: %s (%d parameter-sets loaded)", event.Name, len(b.store.Params))
+}
+
+func (b *WhawtyAuthBackend) initPrometheus(prom *prometheus.Registry) error {
+	// TODO: implement this!
+	return nil
 }
 
 func (b *WhawtyAuthBackend) Authenticate(username, password string) error {

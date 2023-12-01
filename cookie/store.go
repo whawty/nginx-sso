@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spreadspace/tlsconfig"
 )
 
@@ -171,7 +172,7 @@ type Store struct {
 	dbgLog  *log.Logger
 }
 
-func NewStore(conf *Config, infoLog, dbgLog *log.Logger) (*Store, error) {
+func NewStore(conf *Config, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (*Store, error) {
 	if infoLog == nil {
 		infoLog = log.New(io.Discard, "", 0)
 	}
@@ -191,14 +192,21 @@ func NewStore(conf *Config, infoLog, dbgLog *log.Logger) (*Store, error) {
 		st.infoLog.Printf("cookie-store: failed to initialize keys: %v", err)
 		return nil, err
 	}
-	if err := st.initBackend(conf); err != nil {
+	if err := st.initBackend(conf, prom); err != nil {
 		st.infoLog.Printf("cookie-store: failed to initialize backend: %v", err)
 		return nil, err
+	}
+	if prom != nil {
+		if err := st.initPrometheus(prom); err != nil {
+			st.infoLog.Printf("cookie-store: failed to initialize prometheus metrics: %v", err)
+			return nil, err
+		}
 	}
 	st.infoLog.Printf("cookie-store: successfully initialized (%d keys loaded) using backend: %s", len(st.keys), st.backend.Name())
 	if st.signer == nil {
 		st.infoLog.Printf("cookie-store: no signing key has been loaded - this instance can only verify cookies")
 	}
+
 	return st, nil
 }
 
@@ -328,7 +336,7 @@ func (st *Store) runSync(interval time.Duration, baseURL *url.URL, host string, 
 	}
 }
 
-func (st *Store) initBackend(conf *Config) (err error) {
+func (st *Store) initBackend(conf *Config, prom *prometheus.Registry) (err error) {
 	if conf.Backend.GCInterval <= time.Second {
 		st.infoLog.Printf("cookie-store: overriding invalid/unset GC interval to 5 minutes")
 		conf.Backend.GCInterval = 5 * time.Minute
@@ -355,13 +363,13 @@ func (st *Store) initBackend(conf *Config) (err error) {
 	}
 
 	if conf.Backend.InMemory != nil {
-		st.backend, err = NewInMemoryBackend(conf.Backend.InMemory)
+		st.backend, err = NewInMemoryBackend(conf.Backend.InMemory, prom)
 		if err != nil {
 			return err
 		}
 	}
 	if conf.Backend.Bolt != nil {
-		st.backend, err = NewBoltBackend(conf.Backend.Bolt)
+		st.backend, err = NewBoltBackend(conf.Backend.Bolt, prom)
 		if err != nil {
 			return err
 		}
@@ -376,6 +384,11 @@ func (st *Store) initBackend(conf *Config) (err error) {
 		go st.runSync(conf.Backend.Sync.Interval, syncBaseURL, conf.Backend.Sync.HTTPHost, syncTLSConfig, conf.Backend.Sync.Token)
 	}
 	return
+}
+
+func (st *Store) initPrometheus(prom *prometheus.Registry) error {
+	// TODO: implement this!
+	return nil
 }
 
 func (st *Store) Options() (opts Options) {

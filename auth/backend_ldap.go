@@ -37,6 +37,7 @@ import (
 	"strings"
 
 	"github.com/go-ldap/ldap/v3"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spreadspace/tlsconfig"
 )
 
@@ -59,7 +60,7 @@ type LDAPBackend struct {
 	dbgLog  *log.Logger
 }
 
-func NewLDAPBackend(conf *LDAPConfig, infoLog, dbgLog *log.Logger) (Backend, error) {
+func NewLDAPBackend(conf *LDAPConfig, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (Backend, error) {
 	if conf.UserSearchBase == "" {
 		conf.UserSearchBase = conf.RootDN
 	}
@@ -77,8 +78,19 @@ func NewLDAPBackend(conf *LDAPConfig, infoLog, dbgLog *log.Logger) (Backend, err
 			return nil, fmt.Errorf("ldap: %v", err)
 		}
 	}
+	if prom != nil {
+		err := b.initPrometheus(prom)
+		if err != nil {
+			return nil, err
+		}
+	}
 	infoLog.Printf("ldap: successfully initialized")
 	return b, nil
+}
+
+func (b *LDAPBackend) initPrometheus(prom *prometheus.Registry) error {
+	// TODO: implement this!
+	return nil
 }
 
 func (b *LDAPBackend) getUserDN(l *ldap.Conn, username string) (string, bool, error) {

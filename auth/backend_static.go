@@ -35,6 +35,7 @@ import (
 	"log"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tg123/go-htpasswd"
 )
 
@@ -49,7 +50,7 @@ type StaticBackend struct {
 	dbgLog   *log.Logger
 }
 
-func NewStaticBackend(conf *StaticConfig, infoLog, dbgLog *log.Logger) (Backend, error) {
+func NewStaticBackend(conf *StaticConfig, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (Backend, error) {
 	file, err := htpasswd.New(conf.HTPasswd, htpasswd.DefaultSystems, func(err error) {
 		dbgLog.Printf("static: found invalid line: %v", err)
 	})
@@ -61,6 +62,12 @@ func NewStaticBackend(conf *StaticConfig, infoLog, dbgLog *log.Logger) (Backend,
 	b := &StaticBackend{htpasswd: file, infoLog: infoLog, dbgLog: dbgLog}
 	if conf.AutoReload {
 		runFileWatcher([]string{conf.HTPasswd}, b.watchFileErrorCB, b.watchFileEventCB)
+	}
+	if prom != nil {
+		err = b.initPrometheus(prom)
+		if err != nil {
+			return nil, err
+		}
 	}
 	infoLog.Printf("static: successfully initilized database: %s", conf.HTPasswd)
 	return b, nil
@@ -79,6 +86,11 @@ func (b *StaticBackend) watchFileEventCB(event fsnotify.Event) {
 		return
 	}
 	b.dbgLog.Printf("static: htpasswd file successfully reloaded")
+}
+
+func (b *StaticBackend) initPrometheus(prom *prometheus.Registry) error {
+	// TODO: implement this!
+	return nil
 }
 
 func (b *StaticBackend) Authenticate(username, password string) error {

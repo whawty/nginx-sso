@@ -35,6 +35,7 @@ import (
 	"sync"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type InMemoryBackendConfig struct {
@@ -53,11 +54,21 @@ type InMemoryBackend struct {
 	revoked  map[ulid.ULID]SessionBase
 }
 
-func NewInMemoryBackend(conf *InMemoryBackendConfig) (*InMemoryBackend, error) {
+func NewInMemoryBackend(conf *InMemoryBackendConfig, prom *prometheus.Registry) (*InMemoryBackend, error) {
 	m := &InMemoryBackend{}
 	m.sessions = make(map[string]InMemorySessionMap)
 	m.revoked = make(map[ulid.ULID]SessionBase)
+	if prom != nil {
+		if err := m.initPrometheus(prom); err != nil {
+			return nil, err
+		}
+	}
 	return m, nil
+}
+
+func (b *InMemoryBackend) initPrometheus(prom *prometheus.Registry) error {
+	// TODO: implement this!
+	return nil
 }
 
 func (b *InMemoryBackend) Name() string {

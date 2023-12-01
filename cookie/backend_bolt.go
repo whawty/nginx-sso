@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/prometheus/client_golang/prometheus"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -57,7 +58,7 @@ type BoltBackend struct {
 	db *bolt.DB
 }
 
-func NewBoltBackend(conf *BoltBackendConfig) (*BoltBackend, error) {
+func NewBoltBackend(conf *BoltBackendConfig, prom *prometheus.Registry) (*BoltBackend, error) {
 	db, err := bolt.Open(conf.Path, 0600, &bolt.Options{Timeout: time.Second})
 	if err != nil {
 		if err == bolt.ErrTimeout {
@@ -76,7 +77,18 @@ func NewBoltBackend(conf *BoltBackendConfig) (*BoltBackend, error) {
 		return nil
 	})
 
-	return &BoltBackend{db: db}, nil
+	b := &BoltBackend{db: db}
+	if prom != nil {
+		if err := b.initPrometheus(prom); err != nil {
+			return nil, err
+		}
+	}
+	return b, nil
+}
+
+func (b *BoltBackend) initPrometheus(prom *prometheus.Registry) error {
+	// TODO: implement this!
+	return nil
 }
 
 func (b *BoltBackend) Name() string {

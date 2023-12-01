@@ -62,12 +62,12 @@ func cmdRun(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 2)
 	}
 
-	cookies, err := cookie.NewStore(&conf.Cookie, wl, wdl)
+	cookies, err := cookie.NewStore(&conf.Cookie, prom.registry, wl, wdl)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 2)
 	}
 
-	auth, err := auth.NewBackend(&conf.Auth, wl, wdl)
+	auth, err := auth.NewBackend(&conf.Auth, prom.registry, wl, wdl)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 2)
 	}
