@@ -50,7 +50,7 @@ type StaticBackend struct {
 	dbgLog   *log.Logger
 }
 
-func NewStaticBackend(conf *StaticConfig, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (Backend, error) {
+func NewStaticBackend(conf *StaticConfig, prom prometheus.Registerer, infoLog, dbgLog *log.Logger) (Backend, error) {
 	file, err := htpasswd.New(conf.HTPasswd, htpasswd.DefaultSystems, func(err error) {
 		dbgLog.Printf("static: found invalid line: %v", err)
 	})
@@ -88,7 +88,7 @@ func (b *StaticBackend) watchFileEventCB(event fsnotify.Event) {
 	b.dbgLog.Printf("static: htpasswd file successfully reloaded")
 }
 
-func (b *StaticBackend) initPrometheus(prom *prometheus.Registry) error {
+func (b *StaticBackend) initPrometheus(prom prometheus.Registerer) error {
 	// TODO: implement this!
 	return nil
 }

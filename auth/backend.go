@@ -55,7 +55,7 @@ func (b *NullBackend) Authenticate(username, password string) error {
 	return fmt.Errorf("invalid username/password")
 }
 
-func NewBackend(conf *Config, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (Backend, error) {
+func NewBackend(conf *Config, prom prometheus.Registerer, infoLog, dbgLog *log.Logger) (Backend, error) {
 	if infoLog == nil {
 		infoLog = log.New(io.Discard, "", 0)
 	}

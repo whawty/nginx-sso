@@ -172,7 +172,7 @@ type Store struct {
 	dbgLog  *log.Logger
 }
 
-func NewStore(conf *Config, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (*Store, error) {
+func NewStore(conf *Config, prom prometheus.Registerer, infoLog, dbgLog *log.Logger) (*Store, error) {
 	if infoLog == nil {
 		infoLog = log.New(io.Discard, "", 0)
 	}
@@ -336,7 +336,7 @@ func (st *Store) runSync(interval time.Duration, baseURL *url.URL, host string, 
 	}
 }
 
-func (st *Store) initBackend(conf *Config, prom *prometheus.Registry) (err error) {
+func (st *Store) initBackend(conf *Config, prom prometheus.Registerer) (err error) {
 	if conf.Backend.GCInterval <= time.Second {
 		st.infoLog.Printf("cookie-store: overriding invalid/unset GC interval to 5 minutes")
 		conf.Backend.GCInterval = 5 * time.Minute
@@ -386,7 +386,7 @@ func (st *Store) initBackend(conf *Config, prom *prometheus.Registry) (err error
 	return
 }
 
-func (st *Store) initPrometheus(prom *prometheus.Registry) error {
+func (st *Store) initPrometheus(prom prometheus.Registerer) error {
 	// TODO: implement this!
 	return nil
 }

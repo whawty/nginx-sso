@@ -62,7 +62,7 @@ func TestSessionListEmptyJson(t *testing.T) {
 
 func TestNewStore(t *testing.T) {
 	conf := &Config{}
-	_, err := NewStore(conf, nil, nil)
+	_, err := NewStore(conf, nil, nil, nil)
 	if err == nil {
 		t.Fatal("initializing store from empty config should fail")
 	}
@@ -71,7 +71,7 @@ func TestNewStore(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "empty"},
 	}
-	_, err = NewStore(conf, nil, nil)
+	_, err = NewStore(conf, nil, nil, nil)
 	if err == nil {
 		t.Fatal("initializing store with bogus keys config should fail")
 	}
@@ -81,7 +81,7 @@ func TestNewStore(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
-	_, err = NewStore(conf, nil, nil)
+	_, err = NewStore(conf, nil, nil, nil)
 	if err == nil {
 		t.Fatal("initializing store with corrupt keys config entries should fail")
 	}
@@ -90,7 +90,7 @@ func TestNewStore(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
-	st, err := NewStore(conf, nil, nil)
+	st, err := NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -109,7 +109,7 @@ func TestNewStore(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "test", Ed25519: ed25519Conf},
 	}
-	st, err = NewStore(conf, nil, nil)
+	st, err = NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -118,7 +118,7 @@ func TestNewStore(t *testing.T) {
 	}
 
 	conf.Backend = StoreBackendConfig{}
-	_, err = NewStore(conf, nil, nil)
+	_, err = NewStore(conf, nil, nil, nil)
 	if err == nil {
 		t.Fatal("initializing store with empty backend config should fail")
 	}
@@ -135,7 +135,7 @@ func TestMultipleKeys(t *testing.T) {
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: ed25519ConfSignAndVerify},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
-	st, err := NewStore(conf, nil, nil)
+	st, err := NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -163,17 +163,17 @@ func TestBackendSync(t *testing.T) {
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
 	conf.Backend.Sync = &StoreSyncConfig{BaseURL: ""}
-	_, err := NewStore(conf, nil, nil)
+	_, err := NewStore(conf, nil, nil, nil)
 	if err == nil {
 		t.Fatal("initializing store with empty sync base-url shoud fail")
 	}
 	conf.Backend.Sync = &StoreSyncConfig{BaseURL: "file:///not/a/http/url"}
-	_, err = NewStore(conf, nil, nil)
+	_, err = NewStore(conf, nil, nil, nil)
 	if err == nil {
 		t.Fatal("initializing store with non-http(s) sync base-url shoud fail")
 	}
 	conf.Backend.Sync = &StoreSyncConfig{BaseURL: "http://192.0.2.1"}
-	_, err = NewStore(conf, nil, nil)
+	_, err = NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -185,7 +185,7 @@ func TestNew(t *testing.T) {
 		SignerVerifierConfig{Name: "verify-only", Ed25519: &Ed25519Config{PubKeyData: &testPubKeyEd25519Pem}},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
-	st, err := NewStore(conf, nil, nil)
+	st, err := NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -200,7 +200,7 @@ func TestNew(t *testing.T) {
 	conf.Keys = []SignerVerifierConfig{
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
 	}
-	st, err = NewStore(conf, nil, nil)
+	st, err = NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -245,7 +245,7 @@ func TestVerify(t *testing.T) {
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
-	st, err := NewStore(conf, nil, nil)
+	st, err := NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -336,7 +336,7 @@ func TestNewThenVerifyMultipleKeys(t *testing.T) {
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
-	st, err := NewStore(conf, nil, nil)
+	st, err := NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -390,7 +390,7 @@ func TestListUser(t *testing.T) {
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
-	st, err := NewStore(conf, nil, nil)
+	st, err := NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -509,7 +509,7 @@ func TestListRevoked(t *testing.T) {
 		SignerVerifierConfig{Name: "sign-and-verify", Ed25519: &Ed25519Config{PrivKeyData: &testPrivKeyEd25519Pem}},
 	}
 	conf.Backend = StoreBackendConfig{InMemory: &InMemoryBackendConfig{}}
-	st, err := NewStore(conf, nil, nil)
+	st, err := NewStore(conf, nil, nil, nil)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}

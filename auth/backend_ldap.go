@@ -60,7 +60,7 @@ type LDAPBackend struct {
 	dbgLog  *log.Logger
 }
 
-func NewLDAPBackend(conf *LDAPConfig, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (Backend, error) {
+func NewLDAPBackend(conf *LDAPConfig, prom prometheus.Registerer, infoLog, dbgLog *log.Logger) (Backend, error) {
 	if conf.UserSearchBase == "" {
 		conf.UserSearchBase = conf.RootDN
 	}
@@ -88,7 +88,7 @@ func NewLDAPBackend(conf *LDAPConfig, prom *prometheus.Registry, infoLog, dbgLog
 	return b, nil
 }
 
-func (b *LDAPBackend) initPrometheus(prom *prometheus.Registry) error {
+func (b *LDAPBackend) initPrometheus(prom prometheus.Registerer) error {
 	// TODO: implement this!
 	return nil
 }

@@ -70,7 +70,7 @@ type WhawtyAuthBackend struct {
 	dbgLog          *log.Logger
 }
 
-func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, prom *prometheus.Registry, infoLog, dbgLog *log.Logger) (Backend, error) {
+func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, prom prometheus.Registerer, infoLog, dbgLog *log.Logger) (Backend, error) {
 	s, err := store.NewDirFromConfig(conf.ConfigFile)
 	if err != nil {
 		infoLog.Printf("whawty-auth: failed to intialize store: %v", err)
@@ -198,7 +198,7 @@ func (b *WhawtyAuthBackend) watchFileEventCB(event fsnotify.Event) {
 	b.infoLog.Printf("whawty-auth: successfully reloaded from: %s (%d parameter-sets loaded)", event.Name, len(b.store.Params))
 }
 
-func (b *WhawtyAuthBackend) initPrometheus(prom *prometheus.Registry) error {
+func (b *WhawtyAuthBackend) initPrometheus(prom prometheus.Registerer) error {
 	// TODO: implement this!
 	return nil
 }

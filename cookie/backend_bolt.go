@@ -58,7 +58,7 @@ type BoltBackend struct {
 	db *bolt.DB
 }
 
-func NewBoltBackend(conf *BoltBackendConfig, prom *prometheus.Registry) (*BoltBackend, error) {
+func NewBoltBackend(conf *BoltBackendConfig, prom prometheus.Registerer) (*BoltBackend, error) {
 	db, err := bolt.Open(conf.Path, 0600, &bolt.Options{Timeout: time.Second})
 	if err != nil {
 		if err == bolt.ErrTimeout {
@@ -86,7 +86,7 @@ func NewBoltBackend(conf *BoltBackendConfig, prom *prometheus.Registry) (*BoltBa
 	return b, nil
 }
 
-func (b *BoltBackend) initPrometheus(prom *prometheus.Registry) error {
+func (b *BoltBackend) initPrometheus(prom prometheus.Registerer) error {
 	// TODO: implement this!
 	return nil
 }

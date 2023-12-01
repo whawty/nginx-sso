@@ -54,7 +54,7 @@ type InMemoryBackend struct {
 	revoked  map[ulid.ULID]SessionBase
 }
 
-func NewInMemoryBackend(conf *InMemoryBackendConfig, prom *prometheus.Registry) (*InMemoryBackend, error) {
+func NewInMemoryBackend(conf *InMemoryBackendConfig, prom prometheus.Registerer) (*InMemoryBackend, error) {
 	m := &InMemoryBackend{}
 	m.sessions = make(map[string]InMemorySessionMap)
 	m.revoked = make(map[ulid.ULID]SessionBase)
@@ -66,7 +66,7 @@ func NewInMemoryBackend(conf *InMemoryBackendConfig, prom *prometheus.Registry) 
 	return m, nil
 }
 
-func (b *InMemoryBackend) initPrometheus(prom *prometheus.Registry) error {
+func (b *InMemoryBackend) initPrometheus(prom prometheus.Registerer) error {
 	// TODO: implement this!
 	return nil
 }
