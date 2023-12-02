@@ -48,6 +48,21 @@ import (
 const (
 	DefaultCookieName = "whawty-nginx-sso"
 	DefaultExpire     = 24 * time.Hour
+	metricsSubsystem  = "cookie"
+)
+
+var (
+	cookiesCreated         = prometheus.NewCounter(prometheus.CounterOpts{Subsystem: metricsSubsystem, Name: "created_total"})
+	cookiesVerified        = prometheus.NewCounterVec(prometheus.CounterOpts{Subsystem: metricsSubsystem, Name: "verified_total"}, []string{"result"})
+	cookiesVerifiedSuccess = cookiesVerified.MustCurryWith(prometheus.Labels{"result": "success"})
+	cookiesVerifiedFailed  = cookiesVerified.MustCurryWith(prometheus.Labels{"result": "failed"})
+
+	cookieSyncRequests        = prometheus.NewCounterVec(prometheus.CounterOpts{Subsystem: metricsSubsystem, Name: "sync_requests_total"}, []string{"result"})
+	cookieSyncRequestsSuccess = cookieSyncRequests.MustCurryWith(prometheus.Labels{"result": "success"})
+	cookieSyncRequestsFailed  = cookieSyncRequests.MustCurryWith(prometheus.Labels{"result": "failed"})
+	cookieSyncRequestDuration = prometheus.NewSummary(prometheus.SummaryOpts{
+		Subsystem: metricsSubsystem, Name: "sync_request_duration_seconds",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001}})
 )
 
 type SignerVerifierConfig struct {
@@ -273,18 +288,18 @@ func (st *Store) verifyAndDecodeSignedRevocationList(signed SignedRevocationList
 	return
 }
 
-func (st *Store) syncRevocations(client *http.Client, baseURL *url.URL, host, token string) {
+func (st *Store) syncRevocations(client *http.Client, baseURL *url.URL, host, token string) bool {
 	req, _ := http.NewRequest("GET", baseURL.JoinPath("revocations").String(), nil)
 	req.Host = host
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {
 		st.infoLog.Printf("sync-store: error sending sync request: %v", err)
-		return
+		return false
 	}
 	if resp.StatusCode != http.StatusOK {
 		st.infoLog.Printf("sync-store: error sending sync request: got HTTP status code %d", resp.StatusCode)
-		return
+		return false
 	}
 
 	var signed SignedRevocationList
@@ -292,23 +307,24 @@ func (st *Store) syncRevocations(client *http.Client, baseURL *url.URL, host, to
 	resp.Body.Close()
 	if err != nil {
 		st.infoLog.Printf("sync-store: error parsing sync response: %v", err)
-		return
+		return false
 	}
 
 	var list SessionList
 	list, err = st.verifyAndDecodeSignedRevocationList(signed)
 	if err != nil {
-		return
+		return false
 	}
 
 	var cnt uint
 	if cnt, err = st.backend.LoadRevocations(list); err != nil {
 		st.infoLog.Printf("sync-state: error loading revocations: %v", err)
-		return
+		return false
 	}
 	if cnt > 0 {
 		st.dbgLog.Printf("sync-state: successfully synced %d revocations", cnt)
 	}
+	return true
 }
 
 func (st *Store) runSync(interval time.Duration, baseURL *url.URL, host string, tlsConfig *tls.Config, token string) {
@@ -332,7 +348,14 @@ func (st *Store) runSync(interval time.Duration, baseURL *url.URL, host string, 
 			st.infoLog.Printf("cookie-store: stopping sync because ticker-channel is closed")
 			return
 		}
-		st.syncRevocations(client, baseURL, host, token)
+		now := time.Now()
+		ok := st.syncRevocations(client, baseURL, host, token)
+		cookieSyncRequestDuration.Observe(time.Since(now).Seconds())
+		if ok {
+			cookieSyncRequestsSuccess.WithLabelValues().Inc()
+		} else {
+			cookieSyncRequestsFailed.WithLabelValues().Inc()
+		}
 	}
 }
 
@@ -386,8 +409,24 @@ func (st *Store) initBackend(conf *Config, prom prometheus.Registerer) (err erro
 	return
 }
 
-func (st *Store) initPrometheus(prom prometheus.Registerer) error {
-	// TODO: implement this!
+func (st *Store) initPrometheus(prom prometheus.Registerer) (err error) {
+	if err = prom.Register(cookiesCreated); err != nil {
+		return
+	}
+	if err = prom.Register(cookiesVerified); err != nil {
+		return
+	}
+	cookiesVerifiedSuccess.WithLabelValues()
+	cookiesVerifiedFailed.WithLabelValues()
+
+	if err = prom.Register(cookieSyncRequests); err != nil {
+		return
+	}
+	cookieSyncRequestsSuccess.WithLabelValues()
+	cookieSyncRequestsFailed.WithLabelValues()
+	if err = prom.Register(cookieSyncRequestDuration); err != nil {
+		return
+	}
 	return nil
 }
 
@@ -418,6 +457,7 @@ func (st *Store) New(username string, ai AgentInfo) (value string, opts Options,
 	}
 	st.dbgLog.Printf("successfully generated new session('%v'): %+v", id, s)
 
+	cookiesCreated.Inc()
 	opts.fromConfig(st.conf)
 	value = v.String()
 	return
@@ -435,29 +475,35 @@ func (st *Store) Verify(value string) (s Session, err error) {
 		}
 	}
 	if err != nil {
+		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("cookie signature is not valid")
 		return
 	}
 
 	if s, err = v.Session(); err != nil {
+		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("unable to decode cookie: %v", err)
 		return
 	}
 	if s.IsExpired() {
+		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("cookie is expired")
 		return
 	}
 
 	var revoked bool
 	if revoked, err = st.backend.IsRevoked(s); err != nil {
+		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("failed to check for cookie revocation: %v", err)
 		return
 	}
 	if revoked {
+		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("cookie is revoked")
 		return
 	}
 
+	cookiesVerifiedSuccess.WithLabelValues().Inc()
 	st.dbgLog.Printf("successfully verified session('%v'): %+v", s.ID, s.SessionBase)
 	return
 }
