@@ -127,29 +127,26 @@ type whawtyUpgradeRequest struct {
 	NewPassword string `json:"newpassword,omitempty"`
 }
 
-func remoteHTTPUpgrade(upgrade whawtyUpgradeRequest, remote, httpHost string, client *http.Client, infoLog, dbgLog *log.Logger) {
+func remoteHTTPUpgrade(upgrade whawtyUpgradeRequest, remote, httpHost string, client *http.Client, infoLog, dbgLog *log.Logger) bool {
 	reqdata, err := json.Marshal(upgrade)
 	if err != nil {
-		whawtyRemoteUpgradesFailed.WithLabelValues().Inc()
 		infoLog.Printf("whawty-auth: error while encoding remote-upgrade request: %v", err)
-		return
+		return false
 	}
 	req, _ := http.NewRequest("POST", remote, bytes.NewReader(reqdata))
 	req.Host = httpHost
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		whawtyRemoteUpgradesFailed.WithLabelValues().Inc()
 		infoLog.Printf("whawty-auth: error sending remote-upgrade request: %v", err)
-		return
+		return false
 	}
 	if resp.StatusCode != http.StatusOK {
-		whawtyRemoteUpgradesFailed.WithLabelValues().Inc()
 		infoLog.Printf("whawty-auth: remote-upgrade: failed for '%s' with status: %s", upgrade.Username, resp.Status)
-	} else {
-		whawtyRemoteUpgradesSuccess.WithLabelValues().Inc()
-		dbgLog.Printf("whawty-auth: successfully upgraded '%s'", upgrade.Username)
+		return false
 	}
+	dbgLog.Printf("whawty-auth: successfully upgraded '%s'", upgrade.Username)
+	return true
 }
 
 func remoteHTTPUpgrader(upgradeChan <-chan whawtyUpgradeRequest, remote, httpHost string, client *http.Client, infoLog, dbgLog *log.Logger) {
@@ -161,8 +158,13 @@ func remoteHTTPUpgrader(upgradeChan <-chan whawtyUpgradeRequest, remote, httpHos
 			go func(upgrade whawtyUpgradeRequest, remote string) {
 				defer func() { <-sem }()
 				now := time.Now()
-				remoteHTTPUpgrade(upgrade, remote, httpHost, client, infoLog, dbgLog)
+				ok := remoteHTTPUpgrade(upgrade, remote, httpHost, client, infoLog, dbgLog)
 				whawtyRemoteUpgradeDuration.Observe(time.Since(now).Seconds())
+				if ok {
+					whawtyRemoteUpgradesSuccess.WithLabelValues().Inc()
+				} else {
+					whawtyRemoteUpgradesFailed.WithLabelValues().Inc()
+				}
 			}(upgrade, remote)
 		default:
 			dbgLog.Printf("whawty-auth: ignoring upgrade request for '%s' due to rate-limiting", upgrade.Username)
