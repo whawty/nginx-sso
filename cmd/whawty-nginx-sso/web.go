@@ -35,6 +35,7 @@ import (
 	"net"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,11 +43,29 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mileusna/useragent"
 	"github.com/oklog/ulid/v2"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/whawty/nginx-sso/auth"
 	"github.com/whawty/nginx-sso/cookie"
 	"github.com/whawty/nginx-sso/ui"
 	"gitlab.com/go-box/pongo2gin/v6"
 )
+
+var (
+	webRequests        = prometheus.NewCounterVec(prometheus.CounterOpts{Subsystem: "web", Name: "requests_total"}, []string{"status", "endpoint"})
+	webRequestDuration = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Subsystem: "web", Name: "request_duration_seconds",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001}}, []string{"endpoint"})
+)
+
+func promMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		endpoint := path.Base(c.Request.URL.Path)
+		now := time.Now()
+		c.Next()
+		webRequestDuration.WithLabelValues(endpoint).Observe(time.Since(now).Seconds())
+		webRequests.WithLabelValues(strconv.Itoa(c.Writer.Status()), endpoint).Inc()
+	}
+}
 
 type WebError struct {
 	Error string `json:"error"`
@@ -291,13 +310,22 @@ func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth
 	h := &HandlerContext{conf: config, cookies: cookies, auth: auth}
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login")) })
 	r.StaticFS("/ui/", ui.StaticAssets)
-	r.GET("/auth", h.handleAuth)
-	r.GET("/login", h.handleLoginGet)
-	r.POST("/login", h.handleLoginPost)
-	r.GET("/logout", h.handleLogout)
-	r.GET("/sessions", h.handleSessions)
-	r.GET("/revocations", h.handleRevocations)
 	prom.install(r)
+	if err = prom.reg().Register(webRequests); err != nil {
+		return
+	}
+	if err = prom.reg().Register(webRequestDuration); err != nil {
+		return
+	}
+
+	g := r.Group("/")
+	g.Use(promMiddleware())
+	g.GET("/auth", h.handleAuth)
+	g.GET("/login", h.handleLoginGet)
+	g.POST("/login", h.handleLoginPost)
+	g.GET("/logout", h.handleLogout)
+	g.GET("/sessions", h.handleSessions)
+	g.GET("/revocations", h.handleRevocations)
 
 	listener, err := net.Listen("tcp", config.Listen)
 	if err != nil {
