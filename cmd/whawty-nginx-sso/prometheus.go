@@ -93,5 +93,8 @@ func (m *MetricsHandler) run() {
 }
 
 func (m *MetricsHandler) reg() prometheus.Registerer {
+	if m.registry == nil {
+		return nil
+	}
 	return prometheus.WrapRegistererWithPrefix(m.namespace+"_", m.registry)
 }

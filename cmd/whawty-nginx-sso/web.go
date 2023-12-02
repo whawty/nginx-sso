@@ -311,15 +311,16 @@ func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login")) })
 	r.StaticFS("/ui/", ui.StaticAssets)
 	prom.install(r)
-	if err = prom.reg().Register(webRequests); err != nil {
-		return
-	}
-	if err = prom.reg().Register(webRequestDuration); err != nil {
-		return
-	}
-
 	g := r.Group("/")
-	g.Use(promMiddleware())
+	if reg := prom.reg(); reg != nil {
+		g.Use(promMiddleware())
+		if err = reg.Register(webRequests); err != nil {
+			return
+		}
+		if err = reg.Register(webRequestDuration); err != nil {
+			return
+		}
+	}
 	g.GET("/auth", h.handleAuth)
 	g.GET("/login", h.handleLoginGet)
 	g.POST("/login", h.handleLoginPost)
