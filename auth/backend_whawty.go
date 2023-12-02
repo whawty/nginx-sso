@@ -39,6 +39,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/prometheus/client_golang/prometheus"
@@ -54,8 +55,11 @@ var (
 	whawtyRemoteUpgrades        = prometheus.NewCounterVec(prometheus.CounterOpts{Subsystem: metricsSubsystem, Name: "whawty_remote_upgrades_total"}, []string{"result"})
 	whawtyRemoteUpgradesSuccess = whawtyRemoteUpgrades.MustCurryWith(prometheus.Labels{"result": "success"})
 	whawtyRemoteUpgradesFailed  = whawtyRemoteUpgrades.MustCurryWith(prometheus.Labels{"result": "failed"})
-	whawtyReloadFailed          = prometheus.NewGauge(prometheus.GaugeOpts{Subsystem: metricsSubsystem, Name: "whawty_reload_failed"})
-	whawtyReloadLastSuccess     = prometheus.NewGauge(prometheus.GaugeOpts{Subsystem: metricsSubsystem, Name: "whawty_successful_reload_timestamp_seconds"})
+	whawtyRemoteUpgradeDuration = prometheus.NewSummary(prometheus.SummaryOpts{
+		Subsystem: metricsSubsystem, Name: "whawty_remote_upgrade_duration_seconds",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001}})
+	whawtyReloadFailed      = prometheus.NewGauge(prometheus.GaugeOpts{Subsystem: metricsSubsystem, Name: "whawty_reload_failed"})
+	whawtyReloadLastSuccess = prometheus.NewGauge(prometheus.GaugeOpts{Subsystem: metricsSubsystem, Name: "whawty_successful_reload_timestamp_seconds"})
 )
 
 type WhawtyAuthConfig struct {
@@ -156,7 +160,9 @@ func remoteHTTPUpgrader(upgradeChan <-chan whawtyUpgradeRequest, remote, httpHos
 			dbgLog.Printf("whawty-auth: upgrading '%s' via %s", upgrade.Username, remote)
 			go func(upgrade whawtyUpgradeRequest, remote string) {
 				defer func() { <-sem }()
+				now := time.Now()
 				remoteHTTPUpgrade(upgrade, remote, httpHost, client, infoLog, dbgLog)
+				whawtyRemoteUpgradeDuration.Observe(time.Since(now).Seconds())
 			}(upgrade, remote)
 		default:
 			dbgLog.Printf("whawty-auth: ignoring upgrade request for '%s' due to rate-limiting", upgrade.Username)
@@ -221,6 +227,9 @@ func (b *WhawtyAuthBackend) initPrometheus(prom prometheus.Registerer) (err erro
 	}
 	whawtyRemoteUpgradesSuccess.WithLabelValues()
 	whawtyRemoteUpgradesFailed.WithLabelValues()
+	if err = prom.Register(whawtyRemoteUpgradeDuration); err != nil {
+		return
+	}
 	if err = prom.Register(whawtyReloadFailed); err != nil {
 		return
 	}

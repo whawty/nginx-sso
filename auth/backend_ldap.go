@@ -35,10 +35,20 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spreadspace/tlsconfig"
+)
+
+var (
+	ldapRequests        = prometheus.NewCounterVec(prometheus.CounterOpts{Subsystem: metricsSubsystem, Name: "ldap_requests_total"}, []string{"result", "server"})
+	ldapRequestsSuccess = ldapRequests.MustCurryWith(prometheus.Labels{"result": "success"})
+	ldapRequestsFailed  = ldapRequests.MustCurryWith(prometheus.Labels{"result": "failed"})
+	ldapRequestDuration = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Subsystem: metricsSubsystem, Name: "ldap_request_duration_seconds",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001}}, []string{"server"})
 )
 
 type LDAPConfig struct {
@@ -88,8 +98,18 @@ func NewLDAPBackend(conf *LDAPConfig, prom prometheus.Registerer, infoLog, dbgLo
 	return b, nil
 }
 
-func (b *LDAPBackend) initPrometheus(prom prometheus.Registerer) error {
-	// TODO: add custom metrics
+func (b *LDAPBackend) initPrometheus(prom prometheus.Registerer) (err error) {
+	if err = prom.Register(ldapRequests); err != nil {
+		return
+	}
+	if err = prom.Register(ldapRequestDuration); err != nil {
+		return
+	}
+	for _, server := range b.conf.Servers {
+		ldapRequestsSuccess.WithLabelValues(server)
+		ldapRequestsFailed.WithLabelValues(server)
+		ldapRequestDuration.WithLabelValues(server)
+	}
 	return metricsCommon(prom)
 }
 
@@ -166,16 +186,20 @@ func (b *LDAPBackend) Authenticate(username, password string) (err error) {
 	}
 
 	retry := false
-	last := b.conf.Servers[0]
-	for _, server := range b.conf.Servers {
-		if err != nil {
-			b.dbgLog.Printf("ldap: login to server '%s' failed: %v ... trying another server", last, err)
-		}
+	for i, server := range b.conf.Servers {
+		now := time.Now()
 		retry, err = b.authenticate(server, username, password)
+		ldapRequestDuration.WithLabelValues(server).Observe(time.Since(now).Seconds())
 		if !retry {
+			ldapRequestsSuccess.WithLabelValues(server).Inc()
 			break
 		}
-		last = server
+		ldapRequestsFailed.WithLabelValues(server).Inc()
+		other := "... trying another server"
+		if i+1 >= len(b.conf.Servers) {
+			other = ""
+		}
+		b.dbgLog.Printf("ldap: login to server '%s' failed: %v%s", server, err, other)
 	}
 	if err != nil {
 		authRequestsFailed.WithLabelValues().Inc()
