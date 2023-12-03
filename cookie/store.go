@@ -463,7 +463,7 @@ func (st *Store) New(username string, ai AgentInfo) (value string, opts Options,
 	return
 }
 
-func (st *Store) Verify(value string) (s Session, err error) {
+func (st *Store) verify(value string) (s Session, err error) {
 	var v Value
 	if err = v.FromString(value); err != nil {
 		return
@@ -475,36 +475,40 @@ func (st *Store) Verify(value string) (s Session, err error) {
 		}
 	}
 	if err != nil {
-		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("cookie signature is not valid")
 		return
 	}
 
 	if s, err = v.Session(); err != nil {
-		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("unable to decode cookie: %v", err)
 		return
 	}
 	if s.IsExpired() {
-		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("cookie is expired")
 		return
 	}
 
 	var revoked bool
 	if revoked, err = st.backend.IsRevoked(s); err != nil {
-		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("failed to check for cookie revocation: %v", err)
 		return
 	}
 	if revoked {
-		cookiesVerifiedFailed.WithLabelValues().Inc()
 		err = fmt.Errorf("cookie is revoked")
 		return
 	}
 
-	cookiesVerifiedSuccess.WithLabelValues().Inc()
 	st.dbgLog.Printf("successfully verified session('%v'): %+v", s.ID, s.SessionBase)
+	return
+}
+
+func (st *Store) Verify(value string) (s Session, err error) {
+	s, err = st.verify(value)
+	if err != nil {
+		cookiesVerifiedFailed.WithLabelValues().Inc()
+	} else {
+		cookiesVerifiedSuccess.WithLabelValues().Inc()
+	}
 	return
 }
 
