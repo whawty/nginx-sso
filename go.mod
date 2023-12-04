@@ -42,7 +42,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shurcooL/httpfs v0.0.0-20230704072500-f1e31cf0ba5c // indirect
 	github.com/shurcooL/vfsgen v0.0.0-20230704071429-0000e147ea92 // indirect
-	github.com/spreadspace/tlsconfig v0.0.0-20231129213106-7ef966400fd3 // indirect
+	github.com/spreadspace/tlsconfig v0.0.0-20231204130624-c2b29e15e371 // indirect
 	github.com/tg123/go-htpasswd v1.2.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
