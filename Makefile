@@ -36,7 +36,7 @@ endif
 EXECUTEABLE := whawty-nginx-sso
 
 all: build
-.PHONY: vet format ui build clean distclean
+.PHONY: format vet cover serve-cover clean distclean
 
 format:
 	$(GOCMD) fmt ./...
@@ -58,20 +58,16 @@ cover:
 serve-cover:
 	cd ./.coverage; python3 -m http.server
 
-ui:
-	$(GOCMD) generate ./ui
-
-build: test ui
+build: test
 	$(GOCMD) build -o $(EXECUTEABLE) ./cmd/whawty-nginx-sso
 
-dev:
+dev: test
 	$(GOCMD) build -o $(EXECUTEABLE) -tags=dev ./cmd/whawty-nginx-sso
 
 clean:
 	rm -f $(EXECUTEABLE)
 
 distclean: clean
-	rm -f ui/assets_vfsdata.go
 	rm -f doc/man/$(EXECUTEABLE).8
 
 manpage: doc/man/$(EXECUTEABLE).8

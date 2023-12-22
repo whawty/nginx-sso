@@ -62,7 +62,6 @@ func (f *filteredFilesystem) Open(name string) (fs.File, error) {
 	return f.base.Open(name)
 }
 
-
 type AlertLevel string
 
 const (
