@@ -1,5 +1,4 @@
 //go:build dev
-// +build dev
 
 //
 // Copyright (c) 2023 whawty contributors (see AUTHORS file)
@@ -34,7 +33,9 @@
 package ui
 
 import (
-	"net/http"
+	"io/fs"
+	"os"
 )
 
-var Assets http.FileSystem = http.Dir("ui/assets")
+var Assets fs.FS = os.DirFS("ui/assets")
+var StaticAssets fs.FS = &filteredFilesystem{base: Assets}

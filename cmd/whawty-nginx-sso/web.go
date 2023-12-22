@@ -301,7 +301,7 @@ func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth
 			return
 		}
 	} else {
-		htmlTmplLoader = pongo2.MustNewHttpFileSystemLoader(ui.Assets, "")
+		htmlTmplLoader = pongo2.NewFSLoader(ui.Assets)
 	}
 	r.HTMLRender = pongo2gin.New(pongo2gin.RenderOptions{
 		TemplateSet: pongo2.NewSet("html", htmlTmplLoader),
@@ -309,7 +309,7 @@ func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth
 
 	h := &HandlerContext{conf: config, cookies: cookies, auth: auth}
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login")) })
-	r.StaticFS("/ui/", ui.StaticAssets)
+	r.StaticFS("/ui/", http.FS(ui.StaticAssets))
 	prom.install(r)
 	g := r.Group("/")
 	if reg := prom.reg(); reg != nil {

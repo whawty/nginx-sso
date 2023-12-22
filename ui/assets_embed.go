@@ -1,5 +1,4 @@
-//go:build ignore
-// +build ignore
+//go:build !dev
 
 //
 // Copyright (c) 2023 whawty contributors (see AUTHORS file)
@@ -31,23 +30,24 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-package main
+package ui
 
 import (
-	"log"
-	"net/http"
-
-	"github.com/shurcooL/vfsgen"
+	"embed"
+	"io/fs"
 )
 
-func main() {
-	assets := http.Dir("assets")
-	err := vfsgen.Generate(assets, vfsgen.Options{
-		PackageName:  "ui",
-		BuildTags:    "!dev",
-		VariableName: "Assets",
-	})
+//go:embed assets
+var embeddedAssets embed.FS
+
+var Assets fs.FS
+var StaticAssets fs.FS
+
+func init() {
+	var err error
+	Assets, err = fs.Sub(embeddedAssets, "assets")
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
+	StaticAssets = &filteredFilesystem{base: Assets}
 }

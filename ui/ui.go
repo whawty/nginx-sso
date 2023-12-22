@@ -1,4 +1,3 @@
-//go:generate go run generate_vfsdata.go
 //
 // Copyright (c) 2023 whawty contributors (see AUTHORS file)
 // All rights reserved.
@@ -34,7 +33,7 @@ package ui
 import (
 	"errors"
 	"fmt"
-	"net/http"
+	"io/fs"
 	"os"
 	"path"
 	"time"
@@ -53,17 +52,16 @@ func init() {
 }
 
 type filteredFilesystem struct {
-	base http.FileSystem
+	base fs.FS
 }
 
-func (fs *filteredFilesystem) Open(name string) (http.File, error) {
+func (f *filteredFilesystem) Open(name string) (fs.File, error) {
 	if path.Ext(name) == ".htmpl" {
 		return nil, &os.PathError{Op: "open", Path: name, Err: os.ErrNotExist}
 	}
-	return fs.base.Open(name)
+	return f.base.Open(name)
 }
 
-var StaticAssets http.FileSystem = &filteredFilesystem{base: Assets}
 
 type AlertLevel string
 
