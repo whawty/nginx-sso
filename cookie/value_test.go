@@ -78,7 +78,7 @@ func TestMakeValue(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if bytes.Compare(v.payload, expectedPayload) != 0 {
+	if !bytes.Equal(v.payload, expectedPayload) {
 		t.Fatalf("encoding cookie payload failed, expected: '%s', got '%s'", expectedPayload, v.payload)
 	}
 }
@@ -145,7 +145,7 @@ func TestValueFromString(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if bytes.Compare(v.signature, expectedSignature) != 0 {
+	if !bytes.Equal(v.signature, expectedSignature) {
 		t.Fatalf("encoding cookie session failed, expected: '%s', got '%s'", expectedSignature, v.signature)
 	}
 

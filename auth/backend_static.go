@@ -67,7 +67,10 @@ func NewStaticBackend(conf *StaticConfig, prom prometheus.Registerer, infoLog, d
 	b := &StaticBackend{htpasswd: file, infoLog: infoLog, dbgLog: dbgLog}
 	if conf.AutoReload {
 		staticReloadLastSuccess.SetToCurrentTime()
-		runFileWatcher([]string{conf.HTPasswd}, b.watchFileErrorCB, b.watchFileEventCB)
+		err = runFileWatcher([]string{conf.HTPasswd}, b.watchFileErrorCB, b.watchFileEventCB)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if prom != nil {
 		err = b.initPrometheus(prom)

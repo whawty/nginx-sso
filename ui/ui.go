@@ -45,10 +45,10 @@ import (
 )
 
 func init() {
-	pongo2.RegisterFilter("fa_icon", filterFontAwesomeIcon)
-	pongo2.RegisterFilter("timeuntil", filterTimeuntilTimesince)
-	pongo2.RegisterFilter("timesince", filterTimeuntilTimesince)
-	pongo2.RegisterFilter("naturaltime", filterTimeuntilTimesince)
+	pongo2.RegisterFilter("fa_icon", filterFontAwesomeIcon)        //nolint:errcheck
+	pongo2.RegisterFilter("timeuntil", filterTimeuntilTimesince)   //nolint:errcheck
+	pongo2.RegisterFilter("timesince", filterTimeuntilTimesince)   //nolint:errcheck
+	pongo2.RegisterFilter("naturaltime", filterTimeuntilTimesince) //nolint:errcheck
 }
 
 type filteredFilesystem struct {

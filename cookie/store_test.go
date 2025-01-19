@@ -46,7 +46,7 @@ func TestSessionListEmptyJson(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if bytes.Compare(out, []byte("[]")) != 0 {
+	if !bytes.Equal(out, []byte("[]")) {
 		t.Fatalf("marshalling empty SessionList to json should return '[]', got '%s'", string(out))
 	}
 
@@ -55,7 +55,7 @@ func TestSessionListEmptyJson(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if bytes.Compare(out, []byte("[]")) != 0 {
+	if !bytes.Equal(out, []byte("[]")) {
 		t.Fatalf("marshalling empty SessionFullList to json should return '[]', got '%s'", string(out))
 	}
 }
@@ -525,7 +525,7 @@ func TestListRevoked(t *testing.T) {
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
-	if bytes.Compare([]byte("[]"), signed.Revoked) != 0 {
+	if !bytes.Equal([]byte("[]"), signed.Revoked) {
 		t.Fatalf("unexpected revocation list: expected '[]', got '%s'", signed.Revoked)
 	}
 	err = st.keys[0].Verify(signed.Revoked, signed.Signature)

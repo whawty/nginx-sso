@@ -151,7 +151,7 @@ func (b *LDAPBackend) authenticate(server, username, password string) (bool, err
 		}
 		srvTLSConf = b.tlsConf.Clone()
 		srvTLSConf.ServerName = sn
-		if b.conf.StartTLS == false {
+		if !b.conf.StartTLS {
 			opts = append(opts, ldap.DialWithTLSConfig(srvTLSConf))
 		}
 	}

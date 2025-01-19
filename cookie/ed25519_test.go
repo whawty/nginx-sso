@@ -126,7 +126,7 @@ func TestLoadEd25519PublicKey(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	if bytes.Compare(pub, testPubKeyEd25519Bytes) != 0 {
+	if !bytes.Equal(pub, testPubKeyEd25519Bytes) {
 		t.Fatalf("loading public key failed, expected: '%#v', got '%#v'", testPubKeyEd25519Bytes, pub)
 	}
 }
@@ -164,10 +164,10 @@ func TestLoadEd25519Keys(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	if bytes.Compare(priv, testPrivKeyEd25519Bytes) != 0 {
+	if !bytes.Equal(priv, testPrivKeyEd25519Bytes) {
 		t.Fatalf("loading private key failed, expected: '%#v', got '%#v'", testPrivKeyEd25519Bytes, priv)
 	}
-	if bytes.Compare(pub, testPubKeyEd25519Bytes) != 0 {
+	if !bytes.Equal(pub, testPubKeyEd25519Bytes) {
 		t.Fatalf("loading public key failed, expected: '%#v', got '%#v'", testPubKeyEd25519Bytes, pub)
 	}
 }
@@ -264,7 +264,7 @@ func TestEd25519Sign(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	if bytes.Compare(sig, testSignatureEd25519Bytes) != 0 {
+	if !bytes.Equal(sig, testSignatureEd25519Bytes) {
 		t.Fatalf("signing test message failed: expected signature '%#v', got '%#v'", testSignatureEd25519Bytes, sig)
 	}
 }

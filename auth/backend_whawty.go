@@ -108,7 +108,10 @@ func NewWhawtyAuthBackend(conf *WhawtyAuthConfig, prom prometheus.Registerer, in
 	}
 	if conf.AutoReload {
 		whawtyReloadLastSuccess.SetToCurrentTime()
-		runFileWatcher([]string{conf.ConfigFile}, b.watchFileErrorCB, b.watchFileEventCB)
+		err = runFileWatcher([]string{conf.ConfigFile}, b.watchFileErrorCB, b.watchFileEventCB)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if prom != nil {
 		err = b.initPrometheus(prom)
