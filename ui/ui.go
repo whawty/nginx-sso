@@ -145,9 +145,9 @@ func fontAwesomeIconFromAgentInfo(ai cookie.AgentInfo, attribute string) (*pongo
 
 func filterFontAwesomeIcon(in *pongo2.Value, param *pongo2.Value) (*pongo2.Value, *pongo2.Error) {
 	obj := in.Interface()
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case cookie.AgentInfo:
-		return fontAwesomeIconFromAgentInfo(obj.(cookie.AgentInfo), param.String())
+		return fontAwesomeIconFromAgentInfo(obj, param.String())
 	}
 	err := fmt.Errorf("object type '%T' is not supported", obj)
 	return nil, &pongo2.Error{Sender: "filter:fa_icon", OrigError: err}

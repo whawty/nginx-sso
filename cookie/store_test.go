@@ -232,7 +232,7 @@ func TestNew(t *testing.T) {
 	if s.Username != testUser {
 		t.Fatalf("the username is wrong, expected: %s, got %s", testUser, s.Username)
 	}
-	expire := time.Unix(s.Expires, 0).Sub(time.Now())
+	expire := time.Until(time.Unix(s.Expires, 0))
 	expiresDiff := DefaultExpire - expire
 	if expiresDiff < 0 || expiresDiff > 5*time.Second {
 		t.Fatalf("expires: expected %v, got %v (diff: %v)", DefaultExpire, expire, expiresDiff)

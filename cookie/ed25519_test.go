@@ -106,7 +106,7 @@ MC4CAQAwBQYDK2VwBCIEIG2TybpzwnGPXRU7ekqjCSR3OfIHfv2l4SSvzY0Zw01M
 
 func TestLoadEd25519PublicKey(t *testing.T) {
 	conf := &Ed25519Config{}
-	pub, err := loadEd25519PublicKey(conf)
+	_, err := loadEd25519PublicKey(conf)
 	if err == nil {
 		t.Fatal("loading public key from empty config should fail")
 	}
@@ -121,7 +121,7 @@ func TestLoadEd25519PublicKey(t *testing.T) {
 	}
 
 	conf.PubKeyData = &testPubKeyEd25519Pem
-	pub, err = loadEd25519PublicKey(conf)
+	pub, err := loadEd25519PublicKey(conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -144,7 +144,7 @@ func TestLoadEd25519PublicKeyFile(t *testing.T) {
 
 func TestLoadEd25519Keys(t *testing.T) {
 	conf := &Ed25519Config{}
-	priv, pub, err := loadEd25519Keys(conf)
+	_, _, err := loadEd25519Keys(conf)
 	if err == nil {
 		t.Fatal("loading private/public key from empty config should fail")
 	}
@@ -159,7 +159,7 @@ func TestLoadEd25519Keys(t *testing.T) {
 	}
 
 	conf.PrivKeyData = &testPrivKeyEd25519Pem
-	priv, pub, err = loadEd25519Keys(conf)
+	priv, pub, err := loadEd25519Keys(conf)
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}

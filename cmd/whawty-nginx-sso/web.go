@@ -160,7 +160,6 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 	tmplCtx["redirect"], _ = c.GetQuery("redir")
 	c.HTML(http.StatusOK, "login.htmpl", tmplCtx)
 	logTemplateErrors(c)
-	return
 }
 
 func (h *HandlerContext) handleLoginPost(c *gin.Context) {

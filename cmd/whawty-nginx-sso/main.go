@@ -31,7 +31,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 
@@ -42,7 +42,7 @@ import (
 
 var (
 	wl  = log.New(os.Stdout, "[whawty.nginx-sso]\t", log.LstdFlags)
-	wdl = log.New(ioutil.Discard, "[whawty.nginx-sso dbg]\t", log.LstdFlags)
+	wdl = log.New(io.Discard, "[whawty.nginx-sso dbg]\t", log.LstdFlags)
 )
 
 func init() {
