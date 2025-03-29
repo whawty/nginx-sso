@@ -43,7 +43,7 @@ func TestSessionTimes(t *testing.T) {
 	testSessionBase := SessionBase{Username: "test"}
 	testSessionBase.SetExpiry(time.Second)
 	if testSessionBase.IsExpired() {
-		t.Fatal("newly created session should not be expired!")
+		t.Fatal("newly created session should not be expired")
 	}
 	time.Sleep(1200 * time.Millisecond)
 	if !testSessionBase.IsExpired() {

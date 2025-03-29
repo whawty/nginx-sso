@@ -125,7 +125,7 @@ func (b *BoltBackend) ListUser(username string) (list SessionFullList, err error
 	err = b.db.View(func(tx *bolt.Tx) error {
 		sessions := tx.Bucket([]byte(BoltSessionsBucket))
 		if sessions == nil {
-			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist")
 		}
 		user := sessions.Bucket([]byte(username))
 		if user == nil {
@@ -155,12 +155,12 @@ func (b *BoltBackend) Revoke(session Session) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		sessions := tx.Bucket([]byte(BoltSessionsBucket))
 		if sessions == nil {
-			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist")
 		}
 
 		revoked := tx.Bucket([]byte(BoltRevokedBucket))
 		if revoked == nil {
-			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist")
 		}
 
 		value, err := json.Marshal(session.SessionBase)
@@ -181,7 +181,7 @@ func (b *BoltBackend) RevokeID(username string, id ulid.ULID) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		sessions := tx.Bucket([]byte(BoltSessionsBucket))
 		if sessions == nil {
-			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist")
 		}
 		user := sessions.Bucket([]byte(username))
 		if user == nil {
@@ -204,7 +204,7 @@ func (b *BoltBackend) RevokeID(username string, id ulid.ULID) error {
 
 		revoked := tx.Bucket([]byte(BoltRevokedBucket))
 		if revoked == nil {
-			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist")
 		}
 
 		if err := user.Delete(id.Bytes()); err != nil {
@@ -218,7 +218,7 @@ func (b *BoltBackend) IsRevoked(session Session) (isRevoked bool, err error) {
 	err = b.db.View(func(tx *bolt.Tx) error {
 		revoked := tx.Bucket([]byte(BoltRevokedBucket))
 		if revoked == nil {
-			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist")
 		}
 
 		value := revoked.Get(session.ID.Bytes())
@@ -234,7 +234,7 @@ func (b *BoltBackend) ListRevoked() (list SessionList, err error) {
 	err = b.db.View(func(tx *bolt.Tx) error {
 		revoked := tx.Bucket([]byte(BoltRevokedBucket))
 		if revoked == nil {
-			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist")
 		}
 
 		c := revoked.Cursor()
@@ -261,7 +261,7 @@ func (b *BoltBackend) LoadRevocations(list SessionList) (cnt uint, err error) {
 	err = b.db.Update(func(tx *bolt.Tx) error {
 		revoked := tx.Bucket([]byte(BoltRevokedBucket))
 		if revoked == nil {
-			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist")
 		}
 
 		for _, session := range list {
@@ -311,7 +311,7 @@ func (b *BoltBackend) CollectGarbage() (cnt uint, err error) {
 	err = b.db.Update(func(tx *bolt.Tx) error {
 		sessions := tx.Bucket([]byte(BoltSessionsBucket))
 		if sessions == nil {
-			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist")
 		}
 
 		err := sessions.ForEachBucket(func(username []byte) error {
@@ -332,7 +332,7 @@ func (b *BoltBackend) CollectGarbage() (cnt uint, err error) {
 
 		revoked := tx.Bucket([]byte(BoltRevokedBucket))
 		if revoked == nil {
-			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'revoked' bucket does not exist")
 		}
 
 		_, err = deleteExpired(tx, revoked.Cursor())

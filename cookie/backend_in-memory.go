@@ -85,7 +85,7 @@ func (b *InMemoryBackend) Save(session SessionFull) error {
 		b.sessions[session.Username] = sessions
 	}
 	if _, exists = sessions[session.ID]; exists {
-		return fmt.Errorf("session '%v' already exists!", session.ID)
+		return fmt.Errorf("session '%v' already exists", session.ID)
 	}
 	sessions[session.ID] = InMemorySession{SessionBase: session.SessionBase, Agent: session.Agent}
 	return nil
@@ -100,7 +100,7 @@ func (b *InMemoryBackend) ListUser(username string) (list SessionFullList, err e
 		return
 	}
 	for id, session := range sessions {
-		if !session.SessionBase.IsExpired() {
+		if !session.IsExpired() {
 			list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
 		}
 	}
