@@ -38,6 +38,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	bolt "go.etcd.io/bbolt"
+	boltErrors "go.etcd.io/bbolt/errors"
 )
 
 const (
@@ -61,7 +62,7 @@ type BoltBackend struct {
 func NewBoltBackend(conf *BoltBackendConfig, prom prometheus.Registerer) (*BoltBackend, error) {
 	db, err := bolt.Open(conf.Path, 0600, &bolt.Options{Timeout: time.Second})
 	if err != nil {
-		if err == bolt.ErrTimeout {
+		if err == boltErrors.ErrTimeout {
 			return nil, fmt.Errorf("failed to acquire exclusive-lock for bolt-database: %s", conf.Path)
 		}
 		return nil, err
@@ -99,7 +100,7 @@ func (b *BoltBackend) Save(session SessionFull) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		sessions := tx.Bucket([]byte(BoltSessionsBucket))
 		if sessions == nil {
-			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist!")
+			return fmt.Errorf("database is corrupt: 'sessions' bucket does not exist")
 		}
 
 		user, err := sessions.CreateBucketIfNotExists([]byte(session.Username))
@@ -108,7 +109,7 @@ func (b *BoltBackend) Save(session SessionFull) error {
 		}
 
 		if s := user.Get(session.ID.Bytes()); s != nil {
-			return fmt.Errorf("session '%v' already exists!", session.ID)
+			return fmt.Errorf("session '%v' already exists", session.ID)
 		}
 
 		value, err := json.Marshal(BoltSession{SessionBase: session.SessionBase, Agent: session.Agent})
@@ -141,7 +142,7 @@ func (b *BoltBackend) ListUser(username string) (list SessionFullList, err error
 			if err := json.Unmarshal(value, &session); err != nil {
 				return err
 			}
-			if !session.SessionBase.IsExpired() {
+			if !session.IsExpired() {
 				list = append(list, SessionFull{Session: Session{ID: id, SessionBase: session.SessionBase}, Agent: session.Agent})
 			}
 		}

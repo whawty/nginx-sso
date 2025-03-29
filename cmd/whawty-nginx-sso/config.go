@@ -71,16 +71,16 @@ type Config struct {
 func readConfig(configfile string) (*Config, error) {
 	file, err := os.Open(configfile)
 	if err != nil {
-		return nil, fmt.Errorf("Error opening config file: %s", err)
+		return nil, fmt.Errorf("failed to open config file: %s", err)
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	decoder := yaml.NewDecoder(file)
 	decoder.KnownFields(true)
 
 	c := &Config{}
 	if err = decoder.Decode(c); err != nil {
-		return nil, fmt.Errorf("Error parsing config file: %s", err)
+		return nil, fmt.Errorf("failed to parse config file: %s", err)
 	}
 	return c, nil
 }

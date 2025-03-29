@@ -297,6 +297,8 @@ func (st *Store) syncRevocations(client *http.Client, baseURL *url.URL, host, to
 		st.infoLog.Printf("sync-store: error sending sync request: %v", err)
 		return false
 	}
+	defer resp.Body.Close() //nolint:errcheck
+
 	if resp.StatusCode != http.StatusOK {
 		st.infoLog.Printf("sync-store: error sending sync request: got HTTP status code %d", resp.StatusCode)
 		return false
@@ -304,7 +306,6 @@ func (st *Store) syncRevocations(client *http.Client, baseURL *url.URL, host, to
 
 	var signed SignedRevocationList
 	err = json.NewDecoder(resp.Body).Decode(&signed)
-	resp.Body.Close()
 	if err != nil {
 		st.infoLog.Printf("sync-store: error parsing sync response: %v", err)
 		return false

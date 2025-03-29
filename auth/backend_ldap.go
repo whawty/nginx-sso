@@ -160,7 +160,7 @@ func (b *LDAPBackend) authenticate(server, username, password string) (bool, err
 	if err != nil {
 		return true, err
 	}
-	defer l.Close()
+	defer l.Close() //nolint:errcheck
 
 	if srvTLSConf != nil && b.conf.StartTLS {
 		if err = l.StartTLS(srvTLSConf); err != nil {
