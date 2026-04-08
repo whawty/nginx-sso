@@ -1,5 +1,7 @@
 /whawty-nginx-sso
+/dev.yml
 /cmd/whawty-nginx-sso/whawty-nginx-sso
 /.coverage/
 /contrib/whawty-auth-store
 /contrib/db.bolt
+/contrib/goiabada/

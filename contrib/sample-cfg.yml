@@ -100,6 +100,11 @@ auth:
   #### this filter and base will be used when searching for the user DN, {0} will be replaced by the username
   #   user-search-base: "ou=People,dc=example,dc=com"
   #   user-search-filter: "(&(objectClass=inetOrgPerson)(uid={0}))"
+  # oidc:
+  #   issuer-url: http://localhost:9090
+  #   client-id: whawty-example
+  #   client-secret: "xX_rFBfI2PaZ43O30bFzk_abgoP7rdGpS5LJXxSDi51RcArHqc7L1YVdFnPg"
+  #   redirect-url: http://127.0.0.1:1234/oidc/callback
 
 web:
   listen: "127.0.0.1:1234"

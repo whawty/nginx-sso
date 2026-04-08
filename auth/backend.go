@@ -52,6 +52,7 @@ type Config struct {
 	LDAP   *LDAPConfig       `yaml:"ldap"`
 	Static *StaticConfig     `yaml:"static"`
 	Whawty *WhawtyAuthConfig `yaml:"whawty"`
+	OIDC   *OIDCConfig       `yaml:"oidc"`
 }
 
 type Backend interface {
@@ -90,6 +91,9 @@ func NewBackend(conf *Config, prom prometheus.Registerer, infoLog, dbgLog *log.L
 	}
 	if conf.Whawty != nil {
 		return NewWhawtyAuthBackend(conf.Whawty, prom, infoLog, dbgLog)
+	}
+	if conf.OIDC != nil {
+		return NewOIDCBackend(conf.OIDC, prom, infoLog, dbgLog)
 	}
 	infoLog.Printf("auth: no valid backend configuration found - this instance will only verify cookies")
 	return &NullBackend{}, nil
