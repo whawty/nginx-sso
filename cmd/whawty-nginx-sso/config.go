@@ -42,12 +42,16 @@ import (
 
 type LoginConfig struct {
 	TemplatesPath string `yaml:"templates"`
-	BasePath      string `yaml:"base-path"`
 	Title         string `yaml:"title"`
+
+	// web.login.base-path has been replaced by web.base-path which has a
+	// different meaning, this is only here to tell users about it.
+	ObsoleteBasePath *string `yaml:"base-path"`
 }
 
 type WebConfig struct {
 	Listen      string               `yaml:"listen"`
+	BasePath    string               `yaml:"base-path"`
 	TLS         *tlsconfig.TLSConfig `yaml:"tls"`
 	Login       LoginConfig          `yaml:"login"`
 	Revocations struct {
@@ -81,6 +85,11 @@ func readConfig(configfile string) (*Config, error) {
 	c := &Config{}
 	if err = decoder.Decode(c); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %s", err)
+	}
+	if c.Web.Login.ObsoleteBasePath != nil {
+		return nil, fmt.Errorf("failed to parse config file: web.login.base-path is not supported anymore. " +
+			"All links are relative now, so a proxy that strips the path prefix needs no option at all. " +
+			"To have the proxy pass on the path prefix instead, set web.base-path")
 	}
 	return c, nil
 }

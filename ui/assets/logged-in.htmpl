@@ -7,11 +7,11 @@
     <meta name="description" content="whawty nginx-sso login">
     <meta name="author" content="Christian Pointner <equinox@spreadspace.org>">
 
-    <link href="{{ login.BasePath }}/ui/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="{{ login.BasePath }}/ui/fontawesome/css/fontawesome.min.css" rel="stylesheet">
-    <link href="{{ login.BasePath }}/ui/fontawesome/css/solid.min.css" rel="stylesheet">
-    <link href="{{ login.BasePath }}/ui/fontawesome/css/brands.min.css" rel="stylesheet">
-    <link href="{{ login.BasePath }}/ui/css/main.css" rel="stylesheet">
+    <link href="ui/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="ui/fontawesome/css/fontawesome.min.css" rel="stylesheet">
+    <link href="ui/fontawesome/css/solid.min.css" rel="stylesheet">
+    <link href="ui/fontawesome/css/brands.min.css" rel="stylesheet">
+    <link href="ui/css/main.css" rel="stylesheet">
   </head>
   <body>
     <div class="container-fluid">
@@ -20,7 +20,7 @@
         <div class="row">
           <div class="col-md-3"></div>
           <div class="col-md-6">
-            <h1>User: <strong class="username">{{ session.Username | escape }}</strong></h1>
+            <h1>User: <strong class="username">{{ session.Username }}</strong></h1>
           </div>
           <div class="col-md-3"></div>
         </div>
@@ -43,7 +43,7 @@
         <div class="row">
           <div class="col-md-3"></div>
           <div class="col-md-6">
-            <form method="get" action="{{ login.BasePath }}/logout">
+            <form method="get" action="logout">
               <button type="submit" class="btn btn-danger btn-lg"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
             </form>
           </div>
@@ -62,7 +62,7 @@
           <div class="col-md-8">
             <div class="alertbox">
                <div class="alert alert-{{ alert.Level }} alert-dismissible fade show" role="alert">
-                 <strong>{{ alert.Heading | escape }}:</strong> {{ alert.Message | escape }}
+                 <strong>{{ alert.Heading }}:</strong> {{ alert.Message }}
                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                </div>
             </div>
@@ -87,14 +87,14 @@
 {%   if other.ID != session.ID %}
                 <tr>
                   <td>
-                    <i class="{{ other.Agent | fa_icon:'Name' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.Name | escape }} /
-                    <i class="{{ other.Agent | fa_icon:'OS' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.OS | escape }} /
-                    <i class="{{ other.Agent | fa_icon:'DeviceType' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.DeviceType | escape }}
+                    <i class="{{ other.Agent | fa_icon:'Name' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.Name }} /
+                    <i class="{{ other.Agent | fa_icon:'OS' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.OS }} /
+                    <i class="{{ other.Agent | fa_icon:'DeviceType' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.DeviceType }}
                   </td>
                   <td><span data-bs-toggle="tooltip" data-bs-title="{{ other.CreatedAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ other.CreatedAt() | timesince }}</span></td>
                   <td><span data-bs-toggle="tooltip" data-bs-title="{{ other.ExpiresAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ other.ExpiresAt() | timeuntil }}</span></td>
                   <td>
-                    <form method="get" action="{{ login.BasePath }}/logout">
+                    <form method="post" action="logout">
                       <input type=hidden name=id value="{{ other.ID }}">
                       <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
                     </form>
@@ -109,7 +109,7 @@
         </div>
       </div>
     </div>
-    <script src="{{ login.BasePath }}/ui/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="ui/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript">
       const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
       const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))

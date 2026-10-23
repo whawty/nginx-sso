@@ -54,6 +54,52 @@ Runs the *whawty-nginx-sso* agent as configured by the global configuration file
 This command has no command-specific options
 
 
+WEB INTERFACE
+-------------
+
+The web interface and the endpoints for nginx are served on the address configured with
+*web.listen*. All of them are mounted under *web.base-path*, which defaults to '/'. Only the
+prometheus endpoint uses the path configured for it as is.
+
+*<base-path>/login*::
+    The login form, or the list of sessions of the user if the request carries a valid session
+    cookie. The query parameter *redir* says where to send users after logging in.
+
+*<base-path>/logout*::
+    Logs users out of the session of the request and sends them to the query parameter *redir*
+    or the login form. Other sessions of the user can be revoked using a POST request with the
+    session ID in the form field *id*.
+
+*<base-path>/auth*::
+    The endpoint for the ngx_http_auth_request_module. It answers requests with a valid session
+    cookie with status 200 and the username in the header *X-Username*, all others with 401.
+    If nginx passes on the URI of the original request in the header *X-Origin-URI* the 401
+    answers contain the header *X-Login-Redir* with the URL of the original request, escaped for
+    use as query parameter *redir* of the login form (nginx can't do that itself). The URL is
+    absolute if nginx also passes on the headers *X-Host* and *X-Forwarded-Proto*, otherwise it
+    is just the path.
+
+*<base-path>/sessions*::
+    The sessions of the user of the request as JSON.
+
+*<base-path>/revocations*::
+    The revoked sessions for other instances, see *cookie.backend.sync*. Requests must carry one
+    of the tokens configured in *web.revocations.tokens* as bearer token.
+
+Users are only sent on to paths on the same host and to http(s) URLs of hosts which get the
+session cookie: the cookie domain (*cookie.domain*) and its subdomains, or the host the request
+was sent to if no cookie domain is configured. Other targets are ignored.
+
+All links and redirects of the web interface are relative. If a reverse proxy strips a path
+prefix before passing requests on, leave *web.base-path* unset. Set it if the proxy passes the
+prefix on, i.e. for nginx 'location /sso/ { proxy_pass http://127.0.0.1:1234; }' and
+'web.base-path: /sso'. See contrib/nginx-vhost and contrib/nginx-shared-vhost for examples.
+
+Form posts which other sites make on behalf of users are rejected. Browsers which don't send
+the header Sec-Fetch-Site are checked by comparing the Origin header with the Host header, so
+the reverse proxy should pass the Host header on (for nginx 'proxy_set_header Host $host;').
+
+
 BUGS
 ----
 
