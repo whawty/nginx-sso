@@ -22,7 +22,8 @@ server {
   location /auth {
     internal;
 
-    proxy_pass 127.0.0.1:1234/auth;
+    # if nginx-sso uses web.base-path, put it in front of /auth here
+    proxy_pass http://127.0.0.1:1234/auth;
     proxy_pass_request_body off;
     proxy_set_header Content-Length "";
     proxy_set_header X-Origin-URI $request_uri;
@@ -32,7 +33,28 @@ server {
     proxy_set_header X-Forwarded-Proto $scheme;
   }
 
+  # nginx-sso only redirects to hosts which get the session cookie: the cookie domain
+  # (cookie.domain) and its subdomains or, without a cookie domain, its own host
   location @error401 {
-    return 302 https://login.exmple.com/login?redir=$scheme://$host$request_uri;
+    return 302 https://login.example.com/login?redir=$scheme://$host$request_uri;
+  }
+}
+
+# the login form, the session cookie must be valid for all services (cookie.domain: example.com)
+server {
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+  server_name login.example.com;
+
+  ssl_certificate     /etc/ssl/certs/login.example.com-cert.pem;
+  ssl_certificate_key /etc/ssl/certs/login.example.com-key.pem;
+
+  location / {
+    proxy_pass http://127.0.0.1:1234/;
+    # needed to check where form posts come from in browsers which don't send Sec-Fetch-Site
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
   }
 }

@@ -2,12 +2,12 @@
 .\"     Title: whawty-nginx-sso
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 11/11/2023
+.\"      Date: 10/24/2026
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "WHAWTY\-NGINX\-SSO" "8" "11/11/2023" "\ \&" "\ \&"
+.TH "WHAWTY\-NGINX\-SSO" "8" "10/24/2026" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -54,6 +54,49 @@ Any of the following commands supports \fB\-h | \-\-help\fR as an option\&. This
 .SS "run"
 .sp
 Runs the \fBwhawty\-nginx\-sso\fR agent as configured by the global configuration file\&. This command has no command\-specific options
+.SH "WEB INTERFACE"
+.sp
+The web interface and the endpoints for nginx are served on the address configured with \fBweb\&.listen\fR\&. All of them are mounted under \fBweb\&.base\-path\fR, which defaults to \fI/\fR\&. Only the prometheus endpoint uses the path configured for it as is\&.
+.PP
+\fB<base\-path>/login\fR
+.RS 4
+The login form, or the list of sessions of the user if the request carries a valid session cookie\&. The query parameter
+\fBredir\fR
+says where to send users after logging in\&.
+.RE
+.PP
+\fB<base\-path>/logout\fR
+.RS 4
+Logs users out of the session of the request and sends them to the query parameter
+\fBredir\fR
+or the login form\&. Other sessions of the user can be revoked using a POST request with the session ID in the form field
+\fBid\fR\&.
+.RE
+.PP
+\fB<base\-path>/auth\fR
+.RS 4
+The endpoint for the ngx_http_auth_request_module\&. It answers requests with a valid session cookie with status 200 and the username in the header
+\fBX\-Username\fR, all others with 401\&.
+.RE
+.PP
+\fB<base\-path>/sessions\fR
+.RS 4
+The sessions of the user of the request as JSON\&.
+.RE
+.PP
+\fB<base\-path>/revocations\fR
+.RS 4
+The revoked sessions for other instances, see
+\fBcookie\&.backend\&.sync\fR\&. Requests must carry one of the tokens configured in
+\fBweb\&.revocations\&.tokens\fR
+as bearer token\&.
+.RE
+.sp
+Users are only sent on to paths on the same host and to http(s) URLs of hosts which get the session cookie: the cookie domain (\fBcookie\&.domain\fR) and its subdomains, or the host the request was sent to if no cookie domain is configured\&. Other targets are ignored\&.
+.sp
+All links and redirects of the web interface are relative\&. If a reverse proxy strips a path prefix before passing requests on, leave \fBweb\&.base\-path\fR unset\&. Set it if the proxy passes the prefix on, i\&.e\&. for nginx \fIlocation /sso/ { proxy_pass \fR\fIhttp://127\&.0\&.0\&.1:1234\fR\fI; }\fR and \fIweb\&.base\-path: /sso\fR\&. See contrib/nginx\-vhost and contrib/nginx\-shared\-vhost for examples\&.
+.sp
+Form posts which other sites make on behalf of users are rejected\&. Browsers which don\(cqt send the header Sec\-Fetch\-Site are checked by comparing the Origin header with the Host header, so the reverse proxy should pass the Host header on (for nginx \fIproxy_set_header Host $host;\fR)\&.
 .SH "BUGS"
 .sp
 Most likely there are some bugs in \fBwhawty\-nginx\-sso\fR\&. If you find a bug, please let the developers know at http://github\&.com/whawty/nginx\-sso\&. Of course, pull requests are preferred\&.

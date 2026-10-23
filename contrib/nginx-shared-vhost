@@ -1,0 +1,57 @@
+# nginx-sso and the service it protects on one vhost: the login form is at
+# https://example.com/sso/login, nginx-sso is configured with
+#
+#   web:
+#     listen: "127.0.0.1:1234"
+#     base-path: /sso
+#
+# Without base-path nginx-sso works as well if the prefix is stripped, use
+# 'proxy_pass http://127.0.0.1:1234/;' in location /sso/ and
+# 'proxy_pass http://127.0.0.1:1234/auth;' in location = /sso-auth then.
+server {
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+  server_name example.com;
+
+  ssl_certificate     /etc/ssl/certs/example.com-cert.pem;
+  ssl_certificate_key /etc/ssl/certs/example.com-key.pem;
+
+  location /sso/ {
+    # no URI after the address, so the path is passed on as is
+    proxy_pass http://127.0.0.1:1234;
+    # needed to check where form posts come from in browsers which don't send Sec-Fetch-Site
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location / {
+    auth_request /sso-auth;
+    # in case authentication fails - redirect to login form
+    error_page 401 = @error401;
+
+    # pass the X-Username header on to the protected service
+    auth_request_set $username $upstream_http_x_username;
+    proxy_set_header X-Username $username;
+
+    proxy_pass http://127.0.0.1:8080/;
+  }
+
+  location = /sso-auth {
+    internal;
+
+    proxy_pass http://127.0.0.1:1234/sso/auth;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header X-Origin-URI $request_uri;
+    proxy_set_header X-Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location @error401 {
+    return 302 /sso/login?redir=$request_uri;
+  }
+}
