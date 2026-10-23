@@ -81,15 +81,22 @@ func newTestStore(t *testing.T, domain string) *cookie.Store {
 // session store and the user alice with the password secret.
 func newTestHandler(t *testing.T, conf WebConfig, cookieDomain string) http.Handler {
 	t.Helper()
+	h, _ := newTestHandlerAndStore(t, conf, cookieDomain)
+	return h
+}
+
+func newTestHandlerAndStore(t *testing.T, conf WebConfig, cookieDomain string) (http.Handler, *cookie.Store) {
+	t.Helper()
 	prom, err := newMetricsHandler(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := newWebHandler(&conf, prom, newTestStore(t, cookieDomain), testAuthBackend{"alice": "secret"})
+	store := newTestStore(t, cookieDomain)
+	h, err := newWebHandler(&conf, prom, store, testAuthBackend{"alice": "secret"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return h
+	return h, store
 }
 
 // request sends a request to h. If form is not nil it is sent as the body
@@ -230,8 +237,8 @@ func TestLoginAndAuth(t *testing.T) {
 	}
 
 	session := login(t, h, "/sso/login")
-	if session.Path != "/" || !session.HttpOnly {
-		t.Errorf("session cookie: got path %q and HttpOnly %t, want / and true", session.Path, session.HttpOnly)
+	if session.Path != "/" || !session.HttpOnly || session.SameSite != http.SameSiteLaxMode {
+		t.Errorf("session cookie: got path %q, HttpOnly %t and SameSite %v, want /, true and Lax", session.Path, session.HttpOnly, session.SameSite)
 	}
 
 	rec = request(h, http.MethodGet, "/sso/auth", nil, session)
@@ -367,4 +374,99 @@ func TestRedirectTargets(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "https://wiki.example.com/x") {
 		t.Error("login form lacks safe redirect target")
 	}
+}
+
+// sessionID returns the ID of the session in the cookie c.
+func sessionID(t *testing.T, store *cookie.Store, c *http.Cookie) string {
+	t.Helper()
+	value, err := url.QueryUnescape(c.Value) // gin escapes cookie values
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := store.Verify(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return session.ID.String()
+}
+
+func checkAuth(t *testing.T, h http.Handler, session *http.Cookie, want int, what string) {
+	t.Helper()
+	if rec := request(h, http.MethodGet, "/auth", nil, session); rec.Code != want {
+		t.Errorf("%s: auth returned status %d, want %d", what, rec.Code, want)
+	}
+}
+
+func TestRevokeOtherSession(t *testing.T) {
+	h, store := newTestHandlerAndStore(t, WebConfig{}, "")
+	own := login(t, h, "/login")
+	other := login(t, h, "/login")
+	otherID := sessionID(t, store, other)
+
+	rec := request(h, http.MethodGet, "/logout?id="+otherID, nil, own)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("revoke using GET: got status %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+	}
+	checkAuth(t, h, other, http.StatusOK, "other session after revoke using GET")
+	checkAuth(t, h, own, http.StatusOK, "own session after revoke using GET")
+
+	rec = request(h, http.MethodPost, "/logout", url.Values{"id": {"bogus"}}, own)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("revoke with invalid ID: got status %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+
+	rec = request(h, http.MethodPost, "/logout", url.Values{"id": {otherID}}, own)
+	if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != "login" {
+		t.Errorf("revoke: got status %d and Location %q, want %d and login", rec.Code, loc, http.StatusSeeOther)
+	}
+	checkAuth(t, h, other, http.StatusUnauthorized, "other session after revoke")
+	checkAuth(t, h, own, http.StatusOK, "own session after revoke")
+
+	// without an ID the session of the request is revoked
+	rec = request(h, http.MethodPost, "/logout", url.Values{"redir": {"/somewhere"}}, own)
+	if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != "/somewhere" {
+		t.Errorf("logout using POST: got status %d and Location %q, want %d and /somewhere", rec.Code, loc, http.StatusSeeOther)
+	}
+	checkAuth(t, h, own, http.StatusUnauthorized, "own session after logout using POST")
+}
+
+func TestCrossOriginRequests(t *testing.T) {
+	h, store := newTestHandlerAndStore(t, WebConfig{}, "")
+	own := login(t, h, "/login")
+	other := login(t, h, "/login")
+	otherID := sessionID(t, store, other)
+
+	post := func(target string, form url.Values, header, value string) int {
+		req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set(header, value)
+		req.AddCookie(own)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	creds := url.Values{"username": {"alice"}, "password": {"secret"}}
+	revoke := url.Values{"id": {otherID}}
+
+	for _, hdr := range [][2]string{
+		{"Sec-Fetch-Site", "cross-site"},
+		{"Sec-Fetch-Site", "same-site"},
+		{"Origin", "https://evil.com"}, // browsers without Sec-Fetch-Site
+	} {
+		if code := post("/login", creds, hdr[0], hdr[1]); code != http.StatusForbidden {
+			t.Errorf("login with %s: %s: got status %d, want %d", hdr[0], hdr[1], code, http.StatusForbidden)
+		}
+		if code := post("/logout", revoke, hdr[0], hdr[1]); code != http.StatusForbidden {
+			t.Errorf("revoke with %s: %s: got status %d, want %d", hdr[0], hdr[1], code, http.StatusForbidden)
+		}
+		checkAuth(t, h, other, http.StatusOK, "other session after cross-origin revoke")
+	}
+
+	if code := post("/login", creds, "Sec-Fetch-Site", "same-origin"); code != http.StatusSeeOther {
+		t.Errorf("login with Sec-Fetch-Site: same-origin: got status %d, want %d", code, http.StatusSeeOther)
+	}
+	if code := post("/logout", revoke, "Origin", "http://example.com"); code != http.StatusSeeOther {
+		t.Errorf("revoke with matching Origin: got status %d, want %d", code, http.StatusSeeOther)
+	}
+	checkAuth(t, h, other, http.StatusUnauthorized, "other session after same-origin revoke")
 }

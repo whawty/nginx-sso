@@ -175,7 +175,7 @@ func (h *HandlerContext) renderLoggedIn(c *gin.Context, code int, session *cooki
 		alerts = append(alerts, ui.Alert{Level: ui.AlertDanger, Heading: "failed to load user sessions", Message: err.Error()})
 	}
 	tmplCtx["alerts"] = alerts
-	c.HTML(http.StatusOK, "logged-in.htmpl", tmplCtx)
+	c.HTML(code, "logged-in.htmpl", tmplCtx)
 	logTemplateErrors(c)
 }
 
@@ -228,7 +228,7 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 		logTemplateErrors(c)
 		return
 	}
-	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
+	h.setSessionCookie(c, value, opts.MaxAge)
 
 	if redirect == "" {
 		redirect = "login"
@@ -236,38 +236,86 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 	relativeRedirect(c, http.StatusSeeOther, redirect)
 }
 
-func (h *HandlerContext) handleLogout(c *gin.Context) {
-	session, err := h.verifyCookie(c)
-	if err == nil {
-		if idParam, _ := c.GetQuery("id"); idParam != "" {
-			id, err := ulid.ParseStrict(idParam)
-			if err != nil {
-				alert := ui.Alert{Level: ui.AlertDanger, Heading: "invalid Session", Message: err.Error()}
-				h.renderLoggedIn(c, http.StatusBadRequest, session, []ui.Alert{alert})
-				return
-			}
-			if err = h.cookies.RevokeID(session.Username, id); err != nil {
-				alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
-				h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
-				return
-			}
-			h.renderLoggedIn(c, http.StatusOK, session, nil)
-			return
-		}
+func (h *HandlerContext) setSessionCookie(c *gin.Context, value string, maxAge int) {
+	opts := h.cookies.Options()
+	// Lax keeps the browser from sending the cookie along with requests other
+	// sites make, i.e. form posts or images, but still sends it when users
+	// follow links from other sites.
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(opts.Name, value, maxAge, "/", opts.Domain, opts.Secure, true)
+}
 
+// logout revokes the session of the request, if any, and redirects to
+// redirect or the login page.
+func (h *HandlerContext) logout(c *gin.Context, redirect string) {
+	if session, err := h.verifyCookie(c); err == nil {
 		if err = h.cookies.Revoke(*session); err != nil {
 			alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
 			h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
 			return
 		}
 	}
-	opts := h.cookies.Options()
-	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
-	redirect, _ := c.GetQuery("redir")
+	h.setSessionCookie(c, "invalid", -1)
 	if redirect = h.redirectTarget(c, redirect); redirect == "" {
 		redirect = "login"
 	}
 	relativeRedirect(c, http.StatusSeeOther, redirect)
+}
+
+// handleLogout logs users out of the session of the request. This works
+// with GET requests so services can simply link to it.
+func (h *HandlerContext) handleLogout(c *gin.Context) {
+	if _, ok := c.GetQuery("id"); ok {
+		// a link must not be able to revoke other sessions
+		c.Header("Allow", http.MethodPost)
+		c.Data(http.StatusMethodNotAllowed, "text/plain; charset=utf-8", []byte("other sessions can only be revoked using POST requests"))
+		return
+	}
+	redirect, _ := c.GetQuery("redir")
+	h.logout(c, redirect)
+}
+
+// handleLogoutPost revokes the session given by the form field id, which must
+// belong to the user of the request, and shows the list of sessions again.
+// Without id it logs users out of the session of the request like
+// handleLogout.
+func (h *HandlerContext) handleLogoutPost(c *gin.Context) {
+	idParam := c.PostForm("id")
+	if idParam == "" {
+		h.logout(c, c.PostForm("redir"))
+		return
+	}
+
+	session, err := h.verifyCookie(c)
+	if err != nil {
+		relativeRedirect(c, http.StatusSeeOther, "login")
+		return
+	}
+	id, err := ulid.ParseStrict(idParam)
+	if err != nil {
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "invalid session", Message: err.Error()}
+		h.renderLoggedIn(c, http.StatusBadRequest, session, []ui.Alert{alert})
+		return
+	}
+	if err = h.cookies.RevokeID(session.Username, id); err != nil {
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
+		h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
+		return
+	}
+	relativeRedirect(c, http.StatusSeeOther, "login")
+}
+
+// crossOriginProtection rejects requests other sites make on behalf of users,
+// like form posts that log them in or out or revoke their sessions. GET, HEAD
+// and OPTIONS requests are always allowed.
+func crossOriginProtection() gin.HandlerFunc {
+	cop := http.NewCrossOriginProtection()
+	return func(c *gin.Context) {
+		if err := cop.Check(c.Request); err != nil {
+			c.Data(http.StatusForbidden, "text/plain; charset=utf-8", []byte(err.Error()))
+			c.Abort()
+		}
+	}
 }
 
 func (h *HandlerContext) handleSessions(c *gin.Context) {
@@ -384,10 +432,12 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 			return nil, err
 		}
 	}
+	g.Use(crossOriginProtection())
 	g.GET("/auth", h.handleAuth)
 	g.GET("/login", h.handleLoginGet)
 	g.POST("/login", h.handleLoginPost)
 	g.GET("/logout", h.handleLogout)
+	g.POST("/logout", h.handleLogoutPost)
 	g.GET("/sessions", h.handleSessions)
 	g.GET("/revocations", h.handleRevocations)
 
