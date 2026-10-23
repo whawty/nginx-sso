@@ -272,3 +272,99 @@ func TestTemplatesUseRelativeURLs(t *testing.T) {
 		t.Errorf("logged-in page contains absolute URL: %s", m)
 	}
 }
+
+func TestIsSafeRedirect(t *testing.T) {
+	safe := []string{
+		"/",
+		"/wiki/Main_Page?action=edit#top",
+		"login",
+		"../other/",
+		"https://example.com/",
+		"https://wiki.example.com/x?y=z",
+		"http://WIKI.Example.COM:8080/x",
+		"HTTPS://a.b.example.com",
+	}
+	unsafe := []string{
+		"",
+		"//evil.com/",
+		"///evil.com/",
+		"/\\evil.com/",
+		"\\\\evil.com/",
+		"/\t/evil.com/",
+		"/\n/evil.com/",
+		" https://wiki.example.com/",
+		"https://evil.com/",
+		"https://example.com.evil.net/",
+		"https://evilexample.com/",
+		"https://wiki.example.com@evil.com/",
+		"https://user:pass@wiki.example.com/",
+		"https:wiki.example.com",
+		"https:///evil.com",
+		"javascript:alert(1)",
+		"data:text/html,<script>alert(1)</script>",
+		"ftp://wiki.example.com/",
+	}
+	for _, domain := range []string{"example.com", ".example.com", "Example.COM"} {
+		for _, target := range safe {
+			if !isSafeRedirect(target, domain, "login.example.com") {
+				t.Errorf("cookie domain %q: %q is safe but was rejected", domain, target)
+			}
+		}
+		for _, target := range unsafe {
+			if isSafeRedirect(target, domain, "login.example.com") {
+				t.Errorf("cookie domain %q: %q is unsafe but was accepted", domain, target)
+			}
+		}
+	}
+
+	// without a cookie domain only the host of the request gets the cookie
+	for target, want := range map[string]bool{
+		"/wiki/":                           true,
+		"https://login.example.com/x":      true,
+		"https://LOGIN.example.com:8443/x": true,
+		"https://wiki.example.com/x":       false,
+		"https://example.com/x":            false,
+	} {
+		if got := isSafeRedirect(target, "", "login.example.com:443"); got != want {
+			t.Errorf("no cookie domain: isSafeRedirect(%q) = %t, want %t", target, got, want)
+		}
+	}
+}
+
+func TestRedirectTargets(t *testing.T) {
+	h := newTestHandler(t, WebConfig{}, "example.com")
+	creds := func(redirect string) url.Values {
+		return url.Values{"username": {"alice"}, "password": {"secret"}, "redirect": {redirect}}
+	}
+
+	for redirect, want := range map[string]string{
+		"https://wiki.example.com/x": "https://wiki.example.com/x",
+		"/x":                         "/x",
+		"https://evil.com/x":         "login",
+		"//evil.com/x":               "login",
+	} {
+		rec := request(h, http.MethodPost, "/login", creds(redirect))
+		if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != want {
+			t.Errorf("login with redirect %q: got status %d and Location %q, want %d and %q", redirect, rec.Code, loc, http.StatusSeeOther, want)
+		}
+
+		rec = request(h, http.MethodGet, "/logout?redir="+url.QueryEscape(redirect), nil)
+		if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != want {
+			t.Errorf("logout with redir %q: got status %d and Location %q, want %d and %q", redirect, rec.Code, loc, http.StatusSeeOther, want)
+		}
+	}
+
+	// the login form must not carry on unsafe targets
+	rec := request(h, http.MethodGet, "/login?redir="+url.QueryEscape("https://evil.com/x"), nil)
+	if strings.Contains(rec.Body.String(), "evil.com") {
+		t.Error("login form contains unsafe redirect target")
+	}
+	rec = request(h, http.MethodPost, "/login", url.Values{"username": {"alice"}, "password": {"wrong"}, "redirect": {"https://evil.com/x"}})
+	if strings.Contains(rec.Body.String(), "evil.com") {
+		t.Error("login form shown after failed login contains unsafe redirect target")
+	}
+	rec = request(h, http.MethodGet, "/login?redir="+url.QueryEscape("https://wiki.example.com/x"), nil)
+	if !strings.Contains(rec.Body.String(), "https://wiki.example.com/x") {
+		t.Error("login form lacks safe redirect target")
+	}
+}

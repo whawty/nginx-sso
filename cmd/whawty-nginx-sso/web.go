@@ -124,6 +124,49 @@ func relativeRedirect(c *gin.Context, code int, location string) {
 	c.AbortWithStatus(code)
 }
 
+// isSafeRedirect reports whether users may be sent to target after logging
+// in or out. That is the case for paths on this host and http(s) URLs of hosts
+// which get the session cookie: the cookie domain and its subdomains if one is
+// configured, otherwise only the host the request was sent to.
+func isSafeRedirect(target, cookieDomain, requestHost string) bool {
+	if target == "" {
+		return false
+	}
+	// browsers ignore some of these characters or treat a backslash like a
+	// slash, so they could turn a seemingly harmless target into another one
+	for _, r := range target {
+		if r <= ' ' || r == 0x7f || r == '\\' {
+			return false
+		}
+	}
+	u, err := url.Parse(target)
+	if err != nil {
+		return false
+	}
+	if u.Scheme == "" && u.Host == "" {
+		// a path on this host but not //host/path, which is a URL on another host
+		return !strings.HasPrefix(target, "//")
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Opaque != "" || u.User != nil || u.Host == "" {
+		return false
+	}
+
+	host := strings.ToLower(u.Hostname())
+	if cookieDomain = strings.ToLower(strings.TrimPrefix(cookieDomain, ".")); cookieDomain != "" {
+		return host == cookieDomain || strings.HasSuffix(host, "."+cookieDomain)
+	}
+	return host == strings.ToLower((&url.URL{Host: requestHost}).Hostname())
+}
+
+// redirectTarget returns target if it is safe to redirect to and "" otherwise.
+func (h *HandlerContext) redirectTarget(c *gin.Context, target string) string {
+	if target == "" || isSafeRedirect(target, h.cookies.Options().Domain, c.Request.Host) {
+		return target
+	}
+	wdl.Printf("ignoring redirect target '%s'", target)
+	return ""
+}
+
 func (h *HandlerContext) renderLoggedIn(c *gin.Context, code int, session *cookie.Session, alerts []ui.Alert) {
 	tmplCtx := pongo2.Context{"login": h.conf.Login, "session": session}
 	if sessions, err := h.cookies.ListUser(session.Username); err == nil {
@@ -152,8 +195,8 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 		return
 	}
 
-	tmplCtx := pongo2.Context{"login": h.conf.Login}
-	tmplCtx["redirect"], _ = c.GetQuery("redir")
+	redirect, _ := c.GetQuery("redir")
+	tmplCtx := pongo2.Context{"login": h.conf.Login, "redirect": h.redirectTarget(c, redirect)}
 	c.HTML(http.StatusOK, "login.htmpl", tmplCtx)
 	logTemplateErrors(c)
 }
@@ -161,7 +204,7 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 	username := c.PostForm("username")
 	password := c.PostForm("password")
-	redirect := c.PostForm("redirect")
+	redirect := h.redirectTarget(c, c.PostForm("redirect"))
 	tmplCtx := pongo2.Context{"login": h.conf.Login, "redirect": redirect}
 	if username == "" || password == "" {
 		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "missing parameter", Message: "username and password are mandatory"}
@@ -221,7 +264,7 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 	opts := h.cookies.Options()
 	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
 	redirect, _ := c.GetQuery("redir")
-	if redirect == "" {
+	if redirect = h.redirectTarget(c, redirect); redirect == "" {
 		redirect = "login"
 	}
 	relativeRedirect(c, http.StatusSeeOther, redirect)
