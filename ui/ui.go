@@ -67,7 +67,7 @@ type AlertLevel string
 const (
 	AlertDanger  AlertLevel = "danger"
 	AlertWarning AlertLevel = "warning"
-	AlertSuccess AlertLevel = "warning"
+	AlertSuccess AlertLevel = "success"
 	AlertInfo    AlertLevel = "info"
 )
 
