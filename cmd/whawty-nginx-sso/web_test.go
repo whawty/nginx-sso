@@ -470,3 +470,28 @@ func TestCrossOriginRequests(t *testing.T) {
 	}
 	checkAuth(t, h, other, http.StatusUnauthorized, "other session after same-origin revoke")
 }
+
+func TestRevocationsAuthorization(t *testing.T) {
+	conf := WebConfig{}
+	conf.Revocations.Tokens = []string{"", "secret-token"}
+	h := newTestHandler(t, conf, "")
+
+	for header, want := range map[string]int{
+		"":                    http.StatusUnauthorized,
+		"Bearer":              http.StatusUnauthorized,
+		"Bearer ":             http.StatusUnauthorized, // must not match the empty token
+		"Bearer secret":       http.StatusUnauthorized,
+		"Bearer secret-token": http.StatusOK,
+		"Basic secret-token":  http.StatusUnauthorized,
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/revocations", nil)
+		if header != "" {
+			req.Header.Set("Authorization", header)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != want {
+			t.Errorf("Authorization: %q: got status %d, want %d", header, rec.Code, want)
+		}
+	}
+}

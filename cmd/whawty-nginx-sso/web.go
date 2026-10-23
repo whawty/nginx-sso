@@ -31,6 +31,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net"
@@ -345,7 +346,8 @@ func (h *HandlerContext) handleRevocations(c *gin.Context) {
 	}
 	authenticated := false
 	for _, token := range h.conf.Revocations.Tokens {
-		if token == auth_parts[1] {
+		// constant time, so response times don't tell how much of a token is right
+		if token != "" && subtle.ConstantTimeCompare([]byte(token), []byte(auth_parts[1])) == 1 {
 			authenticated = true
 			break
 		}
