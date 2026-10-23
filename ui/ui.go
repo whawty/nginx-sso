@@ -33,9 +33,6 @@ package ui
 import (
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
-	"path"
 	"time"
 
 	"github.com/flosch/go-humanize"
@@ -49,17 +46,6 @@ func init() {
 	pongo2.RegisterFilter("timeuntil", filterTimeuntilTimesince)   //nolint:errcheck
 	pongo2.RegisterFilter("timesince", filterTimeuntilTimesince)   //nolint:errcheck
 	pongo2.RegisterFilter("naturaltime", filterTimeuntilTimesince) //nolint:errcheck
-}
-
-type filteredFilesystem struct {
-	base fs.FS
-}
-
-func (f *filteredFilesystem) Open(name string) (fs.File, error) {
-	if path.Ext(name) == ".htmpl" {
-		return nil, &os.PathError{Op: "open", Path: name, Err: os.ErrNotExist}
-	}
-	return f.base.Open(name)
 }
 
 type AlertLevel string

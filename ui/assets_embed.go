@@ -37,17 +37,22 @@ import (
 	"io/fs"
 )
 
+//go:embed templates
+var embeddedTemplates embed.FS
+
 //go:embed assets
 var embeddedAssets embed.FS
 
-var Assets fs.FS
-var StaticAssets fs.FS
+// Templates are the built-in pongo2 templates of the web interface.
+var Templates = mustSub(embeddedTemplates, "templates")
 
-func init() {
-	var err error
-	Assets, err = fs.Sub(embeddedAssets, "assets")
+// Assets are the static files of the web interface.
+var Assets = mustSub(embeddedAssets, "assets")
+
+func mustSub(fsys fs.FS, dir string) fs.FS {
+	sub, err := fs.Sub(fsys, dir)
 	if err != nil {
 		panic(err)
 	}
-	StaticAssets = &filteredFilesystem{base: Assets}
+	return sub
 }

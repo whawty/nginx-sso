@@ -430,7 +430,7 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 			return nil, err
 		}
 	} else {
-		htmlTmplLoader = pongo2.NewFSLoader(ui.Assets)
+		htmlTmplLoader = pongo2.NewFSLoader(ui.Templates)
 	}
 	r.HTMLRender = pongo2gin.New(pongo2gin.RenderOptions{
 		TemplateSet: pongo2.NewSet("html", htmlTmplLoader),
@@ -446,7 +446,7 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 	}
 	base := r.Group(config.BasePath + "/")
 	base.GET("/", func(c *gin.Context) { relativeRedirect(c, http.StatusSeeOther, "login") })
-	base.StaticFS("/ui/", http.FS(ui.StaticAssets))
+	base.StaticFS("/ui/", http.FS(ui.Assets))
 
 	g := base.Group("/")
 	if reg := prom.reg(); reg != nil {

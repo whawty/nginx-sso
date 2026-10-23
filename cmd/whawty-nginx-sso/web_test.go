@@ -190,6 +190,8 @@ func TestWebHandlerRoutes(t *testing.T) {
 		{http.MethodGet, "/sso/", http.StatusSeeOther, "login"},
 		{http.MethodGet, "/sso/login", http.StatusOK, ""},
 		{http.MethodGet, "/sso/ui/css/main.css", http.StatusOK, ""},
+		{http.MethodGet, "/sso/ui/login.htmpl", http.StatusNotFound, ""}, // templates are not served
+		{http.MethodGet, "/sso/ui/../templates/login.htmpl", http.StatusNotFound, ""},
 		{http.MethodGet, "/sso/auth", http.StatusUnauthorized, ""},
 		{http.MethodGet, "/sso/logout", http.StatusSeeOther, "login"},
 		{http.MethodGet, "/sso/sessions", http.StatusUnauthorized, ""},

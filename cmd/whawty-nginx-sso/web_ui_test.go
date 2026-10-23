@@ -136,7 +136,7 @@ func TestTemplatesHaveNoInlineCode(t *testing.T) {
 // works without internet access and with the Content-Security-Policy.
 func TestUIAssetsAreSelfContained(t *testing.T) {
 	exists := func(name string) bool {
-		_, err := fs.Stat(ui.StaticAssets, name)
+		_, err := fs.Stat(ui.Assets, name)
 		return err == nil
 	}
 
@@ -150,8 +150,15 @@ func TestUIAssetsAreSelfContained(t *testing.T) {
 					t.Errorf("%s: form action %q is not an endpoint of the web interface", name, target)
 				}
 			case strings.HasPrefix(target, "ui/"):
-				if !exists(strings.TrimPrefix(target, "ui/")) {
+				file, id, _ := strings.Cut(strings.TrimPrefix(target, "ui/"), "#")
+				if !exists(file) {
 					t.Errorf("%s: %s %q does not exist", name, kind, target)
+				} else if id != "" {
+					// icons of the sprite: <svg><use href="ui/vendor/icons.svg#name"/></svg>
+					content, _ := fs.ReadFile(ui.Assets, file)
+					if !strings.Contains(string(content), `id="`+id+`"`) {
+						t.Errorf("%s: %s %q: %s has no element with id %q", name, kind, target, file, id)
+					}
 				}
 			default:
 				t.Errorf("%s: %s %q is not a file of the web interface", name, kind, target)
@@ -161,11 +168,11 @@ func TestUIAssetsAreSelfContained(t *testing.T) {
 
 	cssURL := regexp.MustCompile(`url\(\s*("[^"]*"|'[^']*'|[^)'"\s]*)\s*\)`)
 	absoluteURL := regexp.MustCompile(`https?://`)
-	err := fs.WalkDir(ui.StaticAssets, ".", func(name string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || path.Ext(name) == ".htmpl" { // templates are not served
+	err := fs.WalkDir(ui.Assets, ".", func(name string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
 			return err
 		}
-		content, err := fs.ReadFile(ui.StaticAssets, name)
+		content, err := fs.ReadFile(ui.Assets, name)
 		if err != nil {
 			return err
 		}
