@@ -35,6 +35,7 @@ cookie:
     # gc-interval: 5m
     # sync:
     #   interval: 10s
+    #   #### if the other instance uses web.base-path this must include it, e.g. https://localhost:1234/sso
     #   base-url: https://localhost:1234
     #   http-host: login.example.com
     #   token: this-is-a-very-secret-token
@@ -103,13 +104,15 @@ auth:
 
 web:
   listen: "127.0.0.1:1234"
+  #### serve all endpoints under this path, e.g. /sso/login instead of /login (the prometheus endpoint keeps
+  #### the path configured for it). Use this if the proxy in front passes requests on including the path prefix,
+  #### i.e. 'proxy_pass http://127.0.0.1:1234/sso/;' for nginx. If the proxy strips the prefix leave this unset,
+  #### all links and redirects are relative so the web interface works under any prefix then.
+  # base-path: /sso
   login:
     title: "example.com SSO"
     #### this directory must contain login.htmpl and logged-in.htmpl, if left empty the built-in assets will be used
     # templates: path/to/templates
-    #### the http base path where the UI is hosted, if left empty the web interface will look for the HTTP header
-    #### X-BasePath and if this is empty as well '/' will be used.
-    # base-path: /sso/
   revocations:
     tokens:
     - this-is-a-very-secret-token

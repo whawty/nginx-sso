@@ -1,0 +1,274 @@
+//
+// Copyright (c) 2026 whawty contributors (see AUTHORS file)
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of whawty.nginx-sso nor the names of its
+//   contributors may be used to endorse or promote products derived from
+//   this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+
+package main
+
+import (
+	"crypto/ed25519"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/whawty/nginx-sso/cookie"
+)
+
+type testAuthBackend map[string]string
+
+func (b testAuthBackend) Authenticate(username, password string) error {
+	if p, ok := b[username]; ok && p == password {
+		return nil
+	}
+	return errors.New("invalid username or password")
+}
+
+func newTestStore(t *testing.T, domain string) *cookie.Store {
+	t.Helper()
+	_, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPem := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+	conf := &cookie.Config{
+		Domain:  domain,
+		Keys:    []cookie.SignerVerifierConfig{{Name: "test", Ed25519: &cookie.Ed25519Config{PrivKeyData: &keyPem}}},
+		Backend: cookie.StoreBackendConfig{InMemory: &cookie.InMemoryBackendConfig{}},
+	}
+	st, err := cookie.NewStore(conf, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+// newTestHandler returns the web handler for conf with a fresh in-memory
+// session store and the user alice with the password secret.
+func newTestHandler(t *testing.T, conf WebConfig, cookieDomain string) http.Handler {
+	t.Helper()
+	prom, err := newMetricsHandler(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := newWebHandler(&conf, prom, newTestStore(t, cookieDomain), testAuthBackend{"alice": "secret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
+}
+
+// request sends a request to h. If form is not nil it is sent as the body
+// of a form submission.
+func request(h http.Handler, method, target string, form url.Values, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	var req *http.Request
+	if form != nil {
+		req = httptest.NewRequest(method, target, strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	} else {
+		req = httptest.NewRequest(method, target, nil)
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+// login logs in alice and returns the session cookie.
+func login(t *testing.T, h http.Handler, loginURL string) *http.Cookie {
+	t.Helper()
+	rec := request(h, http.MethodPost, loginURL, url.Values{"username": {"alice"}, "password": {"secret"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("login: got status %d, want %d: %s", rec.Code, http.StatusSeeOther, rec.Body)
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == cookie.DefaultCookieName && c.MaxAge > 0 {
+			return c
+		}
+	}
+	t.Fatal("login: no session cookie set")
+	return nil
+}
+
+type routeTest struct {
+	method   string
+	path     string
+	status   int
+	location string // only checked if not empty
+}
+
+func checkRoutes(t *testing.T, h http.Handler, tests []routeTest) {
+	t.Helper()
+	for _, test := range tests {
+		rec := request(h, test.method, test.path, nil)
+		if rec.Code != test.status {
+			t.Errorf("%s %s: got status %d, want %d", test.method, test.path, rec.Code, test.status)
+		}
+		if loc := rec.Header().Get("Location"); test.location != "" && loc != test.location {
+			t.Errorf("%s %s: got Location %q, want %q", test.method, test.path, loc, test.location)
+		}
+	}
+}
+
+func TestNormalizeBasePath(t *testing.T) {
+	tests := map[string]string{
+		"":           "",
+		"/":          "",
+		" / ":        "",
+		"sso":        "/sso",
+		"/sso":       "/sso",
+		"/sso/":      "/sso",
+		"//a//b/":    "/a/b",
+		"/a/./b/../": "/a",
+		"/../sso":    "/sso",
+	}
+	for in, want := range tests {
+		if got := normalizeBasePath(in); got != want {
+			t.Errorf("normalizeBasePath(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestWebHandlerInvalidBasePath(t *testing.T) {
+	prom, _ := newMetricsHandler(nil)
+	for _, basePath := range []string{"/sso/:id", "/sso/*all"} {
+		conf := WebConfig{BasePath: basePath}
+		if _, err := newWebHandler(&conf, prom, newTestStore(t, ""), testAuthBackend{}); err == nil {
+			t.Errorf("base path %q: no error", basePath)
+		}
+	}
+}
+
+func TestWebHandlerRoutes(t *testing.T) {
+	h := newTestHandler(t, WebConfig{BasePath: "/sso/"}, "")
+	checkRoutes(t, h, []routeTest{
+		{http.MethodGet, "/sso", http.StatusSeeOther, "sso/"},
+		{http.MethodGet, "/sso/", http.StatusSeeOther, "login"},
+		{http.MethodGet, "/sso/login", http.StatusOK, ""},
+		{http.MethodGet, "/sso/ui/css/main.css", http.StatusOK, ""},
+		{http.MethodGet, "/sso/auth", http.StatusUnauthorized, ""},
+		{http.MethodGet, "/sso/logout", http.StatusSeeOther, "login"},
+		{http.MethodGet, "/sso/sessions", http.StatusUnauthorized, ""},
+		{http.MethodGet, "/sso/revocations", http.StatusUnauthorized, ""},
+		// nothing outside the base path
+		{http.MethodGet, "/", http.StatusNotFound, ""},
+		{http.MethodGet, "/login", http.StatusNotFound, ""},
+		{http.MethodGet, "/auth", http.StatusNotFound, ""},
+		{http.MethodGet, "/ui/css/main.css", http.StatusNotFound, ""},
+		{http.MethodGet, "/ssox/login", http.StatusNotFound, ""},
+		// no absolute redirects to fix up trailing slashes
+		{http.MethodGet, "/sso/login/", http.StatusNotFound, ""},
+	})
+
+	h = newTestHandler(t, WebConfig{BasePath: "/apps/single sign-on"}, "")
+	checkRoutes(t, h, []routeTest{
+		{http.MethodGet, "/apps/single%20sign-on", http.StatusSeeOther, "single%20sign-on/"},
+		{http.MethodGet, "/apps/single%20sign-on/login", http.StatusOK, ""},
+	})
+}
+
+// Without a base path the web interface also works behind a proxy which
+// strips a path prefix, as long as all redirects are relative.
+func TestWebHandlerBehindStrippingProxy(t *testing.T) {
+	h := newTestHandler(t, WebConfig{}, "")
+	checkRoutes(t, h, []routeTest{
+		{http.MethodGet, "/", http.StatusSeeOther, "login"},
+		{http.MethodGet, "/login", http.StatusOK, ""},
+		{http.MethodGet, "/ui/css/main.css", http.StatusOK, ""},
+		{http.MethodGet, "/auth", http.StatusUnauthorized, ""},
+		{http.MethodGet, "/logout", http.StatusSeeOther, "login"},
+	})
+
+	rec := request(h, http.MethodPost, "/login", url.Values{"username": {"alice"}, "password": {"secret"}})
+	if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != "login" {
+		t.Errorf("login: got status %d and Location %q, want %d and %q", rec.Code, loc, http.StatusSeeOther, "login")
+	}
+}
+
+func TestLoginAndAuth(t *testing.T) {
+	h := newTestHandler(t, WebConfig{BasePath: "/sso"}, "")
+
+	rec := request(h, http.MethodPost, "/sso/login", url.Values{"username": {"alice"}, "password": {"wrong"}})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("login with wrong password: got status %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+
+	session := login(t, h, "/sso/login")
+	if session.Path != "/" || !session.HttpOnly {
+		t.Errorf("session cookie: got path %q and HttpOnly %t, want / and true", session.Path, session.HttpOnly)
+	}
+
+	rec = request(h, http.MethodGet, "/sso/auth", nil, session)
+	if rec.Code != http.StatusOK || rec.Header().Get("X-Username") != "alice" {
+		t.Errorf("auth: got status %d and X-Username %q, want %d and alice", rec.Code, rec.Header().Get("X-Username"), http.StatusOK)
+	}
+
+	rec = request(h, http.MethodGet, "/sso/login", nil, session)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "alice") {
+		t.Errorf("logged-in page: got status %d, want %d and a page mentioning alice", rec.Code, http.StatusOK)
+	}
+
+	rec = request(h, http.MethodGet, "/sso/logout", nil, session)
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("logout: got status %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	rec = request(h, http.MethodGet, "/sso/auth", nil, session)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("auth after logout: got status %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+// Links in the pages must be relative, otherwise they break behind proxies
+// which strip a path prefix.
+func TestTemplatesUseRelativeURLs(t *testing.T) {
+	absolute := regexp.MustCompile(`(?i)\b(?:href|src|action)\s*=\s*["']?/`)
+	h := newTestHandler(t, WebConfig{}, "")
+
+	rec := request(h, http.MethodGet, "/login", nil)
+	if m := absolute.FindString(rec.Body.String()); m != "" {
+		t.Errorf("login page contains absolute URL: %s", m)
+	}
+
+	session := login(t, h, "/login")
+	login(t, h, "/login") // so there is another session in the list
+	rec = request(h, http.MethodGet, "/login", nil, session)
+	if m := absolute.FindString(rec.Body.String()); m != "" {
+		t.Errorf("logged-in page contains absolute URL: %s", m)
+	}
+}

@@ -32,8 +32,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -113,21 +115,17 @@ func (h *HandlerContext) verifyCookie(c *gin.Context) (*cookie.Session, error) {
 	return &session, nil
 }
 
-func (h *HandlerContext) getBasePath(c *gin.Context) string {
-	if h.conf.Login.BasePath != "" {
-		return strings.TrimRight(h.conf.Login.BasePath, "/")
-	}
-	hdr := c.GetHeader("X-BasePath")
-	if hdr != "" {
-		return strings.TrimRight(hdr, "/")
-	}
-	return ""
+// relativeRedirect sends a redirect to location without turning it into an
+// absolute path like c.Redirect does. All redirects to pages of the web
+// interface use paths relative to the current page, so they also work behind
+// proxies which strip a path prefix before passing requests on.
+func relativeRedirect(c *gin.Context, code int, location string) {
+	c.Header("Location", location)
+	c.AbortWithStatus(code)
 }
 
 func (h *HandlerContext) renderLoggedIn(c *gin.Context, code int, session *cookie.Session, alerts []ui.Alert) {
-	login := h.conf.Login
-	login.BasePath = h.getBasePath(c)
-	tmplCtx := pongo2.Context{"login": login, "session": session}
+	tmplCtx := pongo2.Context{"login": h.conf.Login, "session": session}
 	if sessions, err := h.cookies.ListUser(session.Username); err == nil {
 		tmplCtx["sessions"] = sessions
 	} else {
@@ -154,22 +152,17 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 		return
 	}
 
-	login := h.conf.Login
-	login.BasePath = h.getBasePath(c)
-	tmplCtx := pongo2.Context{"login": login}
+	tmplCtx := pongo2.Context{"login": h.conf.Login}
 	tmplCtx["redirect"], _ = c.GetQuery("redir")
 	c.HTML(http.StatusOK, "login.htmpl", tmplCtx)
 	logTemplateErrors(c)
 }
 
 func (h *HandlerContext) handleLoginPost(c *gin.Context) {
-	login := h.conf.Login
-	login.BasePath = h.getBasePath(c)
-
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 	redirect := c.PostForm("redirect")
-	tmplCtx := pongo2.Context{"login": login, "redirect": redirect}
+	tmplCtx := pongo2.Context{"login": h.conf.Login, "redirect": redirect}
 	if username == "" || password == "" {
 		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "missing parameter", Message: "username and password are mandatory"}
 		c.HTML(http.StatusBadRequest, "login.htmpl", tmplCtx)
@@ -195,9 +188,9 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 	c.SetCookie(opts.Name, value, opts.MaxAge, "/", opts.Domain, opts.Secure, true)
 
 	if redirect == "" {
-		redirect = path.Join(h.getBasePath(c), "login")
+		redirect = "login"
 	}
-	c.Redirect(http.StatusSeeOther, redirect)
+	relativeRedirect(c, http.StatusSeeOther, redirect)
 }
 
 func (h *HandlerContext) handleLogout(c *gin.Context) {
@@ -229,9 +222,9 @@ func (h *HandlerContext) handleLogout(c *gin.Context) {
 	c.SetCookie(opts.Name, "invalid", -1, "/", opts.Domain, opts.Secure, true)
 	redirect, _ := c.GetQuery("redir")
 	if redirect == "" {
-		redirect = path.Join(h.getBasePath(c), "login")
+		redirect = "login"
 	}
-	c.Redirect(http.StatusSeeOther, redirect)
+	relativeRedirect(c, http.StatusSeeOther, redirect)
 }
 
 func (h *HandlerContext) handleSessions(c *gin.Context) {
@@ -279,9 +272,26 @@ func (h *HandlerContext) handleRevocations(c *gin.Context) {
 	c.JSON(http.StatusOK, revocations)
 }
 
-func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth auth.Backend) (err error) {
-	if config.Listen == "" {
-		config.Listen = ":http"
+// normalizeBasePath returns the base path in the form used for the routes:
+// empty if the web interface is served at "/", otherwise starting with but
+// not ending in a slash.
+func normalizeBasePath(p string) string {
+	p = path.Clean("/" + strings.TrimSpace(p))
+	if p == "/" {
+		return ""
+	}
+	return p
+}
+
+// newWebHandler returns the handler for all endpoints of the web interface.
+// They are mounted under config.BasePath, i.e. /login becomes
+// <base-path>/login. The metrics endpoint is the exception, it uses the path
+// configured for it as is.
+func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth auth.Backend) (http.Handler, error) {
+	config.BasePath = normalizeBasePath(config.BasePath)
+	if strings.ContainsAny(config.BasePath, ":*") {
+		// gin would treat these as parameters or wildcards
+		return nil, fmt.Errorf("web.base-path must not contain ':' or '*'")
 	}
 	if config.Login.Title == "" {
 		config.Login.Title = "whawty.nginx-sso Login"
@@ -292,12 +302,15 @@ func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.HandleMethodNotAllowed = true
+	// gin would send absolute redirects which don't work behind proxies
+	// stripping a path prefix
+	r.RedirectTrailingSlash = false
 
 	var htmlTmplLoader pongo2.TemplateLoader
 	if config.Login.TemplatesPath != "" {
-		htmlTmplLoader, err = pongo2.NewLocalFileSystemLoader(config.Login.TemplatesPath)
-		if err != nil {
-			return
+		var err error
+		if htmlTmplLoader, err = pongo2.NewLocalFileSystemLoader(config.Login.TemplatesPath); err != nil {
+			return nil, err
 		}
 	} else {
 		htmlTmplLoader = pongo2.NewFSLoader(ui.Assets)
@@ -306,18 +319,26 @@ func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth
 		TemplateSet: pongo2.NewSet("html", htmlTmplLoader),
 		ContentType: "text/html; charset=utf-8"})
 
-	h := &HandlerContext{conf: config, cookies: cookies, auth: auth}
-	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusSeeOther, path.Join(h.getBasePath(c), "login")) })
-	r.StaticFS("/ui/", http.FS(ui.StaticAssets))
 	prom.install(r)
-	g := r.Group("/")
+
+	h := &HandlerContext{conf: config, cookies: cookies, auth: auth}
+	if config.BasePath != "" {
+		// <base-path> -> <base-path>/
+		basePathDir := url.PathEscape(path.Base(config.BasePath)) + "/"
+		r.GET(config.BasePath, func(c *gin.Context) { relativeRedirect(c, http.StatusSeeOther, basePathDir) })
+	}
+	base := r.Group(config.BasePath + "/")
+	base.GET("/", func(c *gin.Context) { relativeRedirect(c, http.StatusSeeOther, "login") })
+	base.StaticFS("/ui/", http.FS(ui.StaticAssets))
+
+	g := base.Group("/")
 	if reg := prom.reg(); reg != nil {
 		g.Use(promMiddleware())
-		if err = reg.Register(webRequests); err != nil {
-			return
+		if err := reg.Register(webRequests); err != nil {
+			return nil, err
 		}
-		if err = reg.Register(webRequestDuration); err != nil {
-			return
+		if err := reg.Register(webRequestDuration); err != nil {
+			return nil, err
 		}
 	}
 	g.GET("/auth", h.handleAuth)
@@ -327,20 +348,36 @@ func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth
 	g.GET("/sessions", h.handleSessions)
 	g.GET("/revocations", h.handleRevocations)
 
+	return r, nil
+}
+
+func runWeb(config *WebConfig, prom *MetricsHandler, cookies *cookie.Store, auth auth.Backend) (err error) {
+	if config.Listen == "" {
+		config.Listen = ":http"
+	}
+
+	handler, err := newWebHandler(config, prom, cookies, auth)
+	if err != nil {
+		return err
+	}
+
 	listener, err := net.Listen("tcp", config.Listen)
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Handler: r, WriteTimeout: 60 * time.Second, ReadTimeout: 60 * time.Second}
-	if config != nil && config.TLS != nil {
+	where := "'/'"
+	if config.BasePath != "" {
+		where = fmt.Sprintf("base path '%s'", config.BasePath)
+	}
+	server := &http.Server{Handler: handler, WriteTimeout: 60 * time.Second, ReadTimeout: 60 * time.Second}
+	if config.TLS != nil {
 		server.TLSConfig, err = config.TLS.ToGoTLSConfig()
 		if err != nil {
 			return
 		}
-		wl.Printf("web-api: listening on '%s' using TLS", listener.Addr())
+		wl.Printf("web-api: listening on '%s' using TLS, serving %s", listener.Addr(), where)
 		return server.ServeTLS(listener, "", "")
-
 	}
-	wl.Printf("web-api: listening on '%s'", listener.Addr())
+	wl.Printf("web-api: listening on '%s', serving %s", listener.Addr(), where)
 	return server.Serve(listener)
 }
