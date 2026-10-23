@@ -180,9 +180,28 @@ func (h *HandlerContext) renderLoggedIn(c *gin.Context, code int, session *cooki
 	logTemplateErrors(c)
 }
 
+// loginRedir returns the URL of the request nginx asks /auth about, escaped
+// for use as the query parameter redir of the login page, or "" if the
+// headers nginx should set for this are missing. nginx can't escape the URL
+// itself, so without this the target would end at the first '&' in it.
+func loginRedir(c *gin.Context) string {
+	target := c.GetHeader("X-Origin-URI")
+	if !strings.HasPrefix(target, "/") {
+		return ""
+	}
+	proto := c.GetHeader("X-Forwarded-Proto")
+	if host := c.GetHeader("X-Host"); host != "" && (proto == "http" || proto == "https") {
+		target = proto + "://" + host + target
+	}
+	return url.QueryEscape(target)
+}
+
 func (h *HandlerContext) handleAuth(c *gin.Context) {
 	session, err := h.verifyCookie(c)
 	if err != nil {
+		if redir := loginRedir(c); redir != "" {
+			c.Header("X-Login-Redir", redir)
+		}
 		c.Data(http.StatusUnauthorized, "text/plain", []byte(err.Error()))
 		return
 	}

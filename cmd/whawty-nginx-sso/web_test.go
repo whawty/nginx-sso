@@ -497,6 +497,59 @@ func TestRevocationsAuthorization(t *testing.T) {
 	}
 }
 
+func TestAuthLoginRedir(t *testing.T) {
+	h := newTestHandler(t, WebConfig{}, "")
+	uri := "/wiki/page?a=1&b=x%26y"
+	tests := []struct {
+		headers map[string]string
+		want    string
+	}{
+		{map[string]string{"X-Origin-URI": uri, "X-Host": "wiki.example.com", "X-Forwarded-Proto": "https"}, "https://wiki.example.com" + uri},
+		{map[string]string{"X-Origin-URI": uri, "X-Host": "wiki.example.com", "X-Forwarded-Proto": "http"}, "http://wiki.example.com" + uri},
+		{map[string]string{"X-Origin-URI": uri}, uri},
+		{map[string]string{"X-Origin-URI": uri, "X-Host": "wiki.example.com"}, uri},
+		{map[string]string{"X-Origin-URI": uri, "X-Host": "wiki.example.com", "X-Forwarded-Proto": "javascript"}, uri},
+		{map[string]string{"X-Origin-URI": "https://evil.com/"}, ""},
+		{map[string]string{"X-Host": "wiki.example.com", "X-Forwarded-Proto": "https"}, ""},
+	}
+	for _, test := range tests {
+		req := httptest.NewRequest(http.MethodGet, "/auth", nil)
+		for k, v := range test.headers {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%v: got status %d, want %d", test.headers, rec.Code, http.StatusUnauthorized)
+		}
+		got, err := url.QueryUnescape(rec.Header().Get("X-Login-Redir"))
+		if err != nil || got != test.want {
+			t.Errorf("%v: got X-Login-Redir for %q, want %q", test.headers, got, test.want)
+		}
+	}
+
+	// nginx puts the header value in the query as is, the login form must get the URL back
+	req := httptest.NewRequest(http.MethodGet, "/auth", nil)
+	req.Header.Set("X-Origin-URI", uri)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	rec = request(h, http.MethodGet, "/login?redir="+rec.Header().Get("X-Login-Redir"), nil)
+	if want := `value="/wiki/page?a=1&amp;b=x%26y"`; !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("login form does not contain %s", want)
+	}
+
+	// no redirect target for requests with a valid session
+	session := login(t, h, "/login")
+	req = httptest.NewRequest(http.MethodGet, "/auth", nil)
+	req.Header.Set("X-Origin-URI", uri)
+	req.AddCookie(session)
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || rec.Header().Get("X-Login-Redir") != "" {
+		t.Errorf("valid session: got status %d and X-Login-Redir %q, want %d and none", rec.Code, rec.Header().Get("X-Login-Redir"), http.StatusOK)
+	}
+}
+
 // The templates must not escape values on top of pongo2's autoescaping.
 func TestTemplatesEscapeOnce(t *testing.T) {
 	h := newTestHandler(t, WebConfig{}, "")

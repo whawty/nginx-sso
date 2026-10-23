@@ -76,7 +76,16 @@ or the login form\&. Other sessions of the user can be revoked using a POST requ
 \fB<base\-path>/auth\fR
 .RS 4
 The endpoint for the ngx_http_auth_request_module\&. It answers requests with a valid session cookie with status 200 and the username in the header
-\fBX\-Username\fR, all others with 401\&.
+\fBX\-Username\fR, all others with 401\&. If nginx passes on the URI of the original request in the header
+\fBX\-Origin\-URI\fR
+the 401 answers contain the header
+\fBX\-Login\-Redir\fR
+with the URL of the original request, escaped for use as query parameter
+\fBredir\fR
+of the login form (nginx can\(cqt do that itself)\&. The URL is absolute if nginx also passes on the headers
+\fBX\-Host\fR
+and
+\fBX\-Forwarded\-Proto\fR, otherwise it is just the path\&.
 .RE
 .PP
 \fB<base\-path>/sessions\fR

@@ -73,6 +73,11 @@ prometheus endpoint uses the path configured for it as is.
 *<base-path>/auth*::
     The endpoint for the ngx_http_auth_request_module. It answers requests with a valid session
     cookie with status 200 and the username in the header *X-Username*, all others with 401.
+    If nginx passes on the URI of the original request in the header *X-Origin-URI* the 401
+    answers contain the header *X-Login-Redir* with the URL of the original request, escaped for
+    use as query parameter *redir* of the login form (nginx can't do that itself). The URL is
+    absolute if nginx also passes on the headers *X-Host* and *X-Forwarded-Proto*, otherwise it
+    is just the path.
 
 *<base-path>/sessions*::
     The sessions of the user of the request as JSON.

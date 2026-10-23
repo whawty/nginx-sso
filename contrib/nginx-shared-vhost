@@ -34,6 +34,8 @@ server {
     # pass the X-Username header on to the protected service
     auth_request_set $username $upstream_http_x_username;
     proxy_set_header X-Username $username;
+    # the URL of this request escaped for the login form, see @error401
+    auth_request_set $login_redir $upstream_http_x_login_redir;
 
     proxy_pass http://127.0.0.1:8080/;
   }
@@ -44,14 +46,17 @@ server {
     proxy_pass http://127.0.0.1:1234/sso/auth;
     proxy_pass_request_body off;
     proxy_set_header Content-Length "";
+    # without X-Host nginx-sso returns just the path in X-Login-Redir, which is all it
+    # takes since the login form is on the same host
     proxy_set_header X-Origin-URI $request_uri;
-    proxy_set_header X-Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
   }
 
+  # $login_redir is $request_uri escaped for use as query parameter, which nginx
+  # can't do itself
   location @error401 {
-    return 302 /sso/login?redir=$request_uri;
+    return 302 /sso/login?redir=$login_redir;
   }
 }
