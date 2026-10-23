@@ -99,6 +99,12 @@ Form posts which other sites make on behalf of users are rejected. Browsers whic
 the header Sec-Fetch-Site are checked by comparing the Origin header with the Host header, so
 the reverse proxy should pass the Host header on (for nginx 'proxy_set_header Host $host;').
 
+All responses carry a Content-Security-Policy which only allows scripts, styles, images and
+fonts of the web interface itself and no inline scripts or styles. Forms may only be sent to the
+web interface, which may redirect to the cookie domain and its subdomains. The pages must not be
+embedded by other sites. Custom templates (*web.login.templates*) have to stay within these
+limits as well.
+
 
 BUGS
 ----

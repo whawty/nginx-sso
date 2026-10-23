@@ -409,10 +409,16 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 		config.Login.Title = "whawty.nginx-sso Login"
 	}
 
+	csp, err := contentSecurityPolicy(cookies.Options().Domain)
+	if err != nil {
+		return nil, err
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(securityHeaders(csp))
 	r.HandleMethodNotAllowed = true
 	// gin would send absolute redirects which don't work behind proxies
 	// stripping a path prefix
@@ -420,7 +426,6 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 
 	var htmlTmplLoader pongo2.TemplateLoader
 	if config.Login.TemplatesPath != "" {
-		var err error
 		if htmlTmplLoader, err = pongo2.NewLocalFileSystemLoader(config.Login.TemplatesPath); err != nil {
 			return nil, err
 		}
@@ -446,10 +451,10 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 	g := base.Group("/")
 	if reg := prom.reg(); reg != nil {
 		g.Use(promMiddleware())
-		if err := reg.Register(webRequests); err != nil {
+		if err = reg.Register(webRequests); err != nil {
 			return nil, err
 		}
-		if err := reg.Register(webRequestDuration); err != nil {
+		if err = reg.Register(webRequestDuration); err != nil {
 			return nil, err
 		}
 	}

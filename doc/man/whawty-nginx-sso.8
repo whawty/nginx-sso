@@ -106,6 +106,8 @@ Users are only sent on to paths on the same host and to http(s) URLs of hosts wh
 All links and redirects of the web interface are relative\&. If a reverse proxy strips a path prefix before passing requests on, leave \fBweb\&.base\-path\fR unset\&. Set it if the proxy passes the prefix on, i\&.e\&. for nginx \fIlocation /sso/ { proxy_pass \fR\fIhttp://127\&.0\&.0\&.1:1234\fR\fI; }\fR and \fIweb\&.base\-path: /sso\fR\&. See contrib/nginx\-vhost and contrib/nginx\-shared\-vhost for examples\&.
 .sp
 Form posts which other sites make on behalf of users are rejected\&. Browsers which don\(cqt send the header Sec\-Fetch\-Site are checked by comparing the Origin header with the Host header, so the reverse proxy should pass the Host header on (for nginx \fIproxy_set_header Host $host;\fR)\&.
+.sp
+All responses carry a Content\-Security\-Policy which only allows scripts, styles, images and fonts of the web interface itself and no inline scripts or styles\&. Forms may only be sent to the web interface, which may redirect to the cookie domain and its subdomains\&. The pages must not be embedded by other sites\&. Custom templates (\fBweb\&.login\&.templates\fR) have to stay within these limits as well\&.
 .SH "BUGS"
 .sp
 Most likely there are some bugs in \fBwhawty\-nginx\-sso\fR\&. If you find a bug, please let the developers know at http://github\&.com/whawty/nginx\-sso\&. Of course, pull requests are preferred\&.
