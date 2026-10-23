@@ -22,11 +22,11 @@
           <h1 class="form-auth-heading">{{ login.Title }}</h1>
           <input id="login-username" type="text" class="form-control" placeholder="Username" name="username" required autofocus>
           <input id="login-password" type="password" class="form-control" placeholder="Password" name="password" required>
-          <input type=hidden name=redirect value="{{ redirect | escape }}">
+          <input type=hidden name=redirect value="{{ redirect }}">
 {% if alert %}
           <div class="alertbox">
              <div class="alert alert-{{ alert.Level }} alert-dismissible fade show" role="alert">
-               <strong>{{ alert.Heading | escape }}:</strong> {{ alert.Message | escape }}
+               <strong>{{ alert.Heading }}:</strong> {{ alert.Message }}
                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
              </div>
           </div>

@@ -78,7 +78,8 @@ func newTestStore(t *testing.T, domain string) *cookie.Store {
 }
 
 // newTestHandler returns the web handler for conf with a fresh in-memory
-// session store and the user alice with the password secret.
+// session store and the users alice and o'brien&<co>, both with the password
+// secret.
 func newTestHandler(t *testing.T, conf WebConfig, cookieDomain string) http.Handler {
 	t.Helper()
 	h, _ := newTestHandlerAndStore(t, conf, cookieDomain)
@@ -92,7 +93,7 @@ func newTestHandlerAndStore(t *testing.T, conf WebConfig, cookieDomain string) (
 		t.Fatal(err)
 	}
 	store := newTestStore(t, cookieDomain)
-	h, err := newWebHandler(&conf, prom, store, testAuthBackend{"alice": "secret"})
+	h, err := newWebHandler(&conf, prom, store, testAuthBackend{"alice": "secret", "o'brien&<co>": "secret"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,5 +494,39 @@ func TestRevocationsAuthorization(t *testing.T) {
 		if rec.Code != want {
 			t.Errorf("Authorization: %q: got status %d, want %d", header, rec.Code, want)
 		}
+	}
+}
+
+// The templates must not escape values on top of pongo2's autoescaping.
+func TestTemplatesEscapeOnce(t *testing.T) {
+	h := newTestHandler(t, WebConfig{}, "")
+	doubled := regexp.MustCompile(`&amp;(?:amp|lt|gt|quot|#39);`)
+
+	rec := request(h, http.MethodPost, "/login", url.Values{"username": {"alice"}, "password": {"wrong"}, "redirect": {"/x?a=1&b=<c>"}})
+	body := rec.Body.String()
+	if want := `value="/x?a=1&amp;b=&lt;c&gt;"`; !strings.Contains(body, want) {
+		t.Errorf("login form does not contain %s", want)
+	}
+	if m := doubled.FindString(body); m != "" {
+		t.Errorf("login form contains doubly escaped value: %s", m)
+	}
+
+	rec = request(h, http.MethodPost, "/login", url.Values{"username": {"o'brien&<co>"}, "password": {"secret"}})
+	var session *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.MaxAge > 0 {
+			session = c
+		}
+	}
+	if session == nil {
+		t.Fatal("login failed")
+	}
+	rec = request(h, http.MethodGet, "/login", nil, session)
+	body = rec.Body.String()
+	if want := `o&#39;brien&amp;&lt;co&gt;`; !strings.Contains(body, want) {
+		t.Errorf("logged-in page does not contain %s", want)
+	}
+	if m := doubled.FindString(body); m != "" {
+		t.Errorf("logged-in page contains doubly escaped value: %s", m)
 	}
 }

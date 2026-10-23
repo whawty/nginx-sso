@@ -20,7 +20,7 @@
         <div class="row">
           <div class="col-md-3"></div>
           <div class="col-md-6">
-            <h1>User: <strong class="username">{{ session.Username | escape }}</strong></h1>
+            <h1>User: <strong class="username">{{ session.Username }}</strong></h1>
           </div>
           <div class="col-md-3"></div>
         </div>
@@ -62,7 +62,7 @@
           <div class="col-md-8">
             <div class="alertbox">
                <div class="alert alert-{{ alert.Level }} alert-dismissible fade show" role="alert">
-                 <strong>{{ alert.Heading | escape }}:</strong> {{ alert.Message | escape }}
+                 <strong>{{ alert.Heading }}:</strong> {{ alert.Message }}
                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                </div>
             </div>
@@ -87,9 +87,9 @@
 {%   if other.ID != session.ID %}
                 <tr>
                   <td>
-                    <i class="{{ other.Agent | fa_icon:'Name' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.Name | escape }} /
-                    <i class="{{ other.Agent | fa_icon:'OS' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.OS | escape }} /
-                    <i class="{{ other.Agent | fa_icon:'DeviceType' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.DeviceType | escape }}
+                    <i class="{{ other.Agent | fa_icon:'Name' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.Name }} /
+                    <i class="{{ other.Agent | fa_icon:'OS' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.OS }} /
+                    <i class="{{ other.Agent | fa_icon:'DeviceType' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.DeviceType }}
                   </td>
                   <td><span data-bs-toggle="tooltip" data-bs-title="{{ other.CreatedAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ other.CreatedAt() | timesince }}</span></td>
                   <td><span data-bs-toggle="tooltip" data-bs-title="{{ other.ExpiresAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ other.ExpiresAt() | timeuntil }}</span></td>
