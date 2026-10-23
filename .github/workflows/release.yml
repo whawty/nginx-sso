@@ -10,13 +10,18 @@ jobs:
       matrix:
         goos: [linux]
         goarch: ["386", amd64, arm64]
+        include:
+        - goos: linux
+          goarch: arm
+          goarm: "7"
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: wangyoucao577/go-release-action@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
+        goarm: ${{ matrix.goarm }}
         project_path: "./cmd/whawty-nginx-sso"
         binary_name: "whawty-nginx-sso"
         pre_command: export CGO_ENABLED=0
@@ -27,10 +32,11 @@ jobs:
     name: Build and Publish Docker Image
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
+    - uses: docker/setup-qemu-action@v4
     - uses: VaultVulp/gp-docker-action@1.6.0
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         image-name: app
-        image-platform: linux/arm64,linux/amd64,linux/i386
+        image-platform: linux/arm64,linux/arm/v7,linux/amd64,linux/i386
         extract-git-tag: true
