@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ login.Title }}</title>
+    <link href="ui/img/favicon.svg" rel="icon" type="image/svg+xml">
+    <link href="ui/css/base.css" rel="stylesheet">
+    <link href="ui/css/app.css" rel="stylesheet">
+    <link href="ui/css/theme.css" rel="stylesheet">
+  </head>
+  <body>
+    <main class="page narrow">
+
+      <header class="host">
+        <div class="brand-row">
+          <span class="mark"><svg class="icon" aria-hidden="true" focusable="false"><use href="ui/vendor/icons.svg#shield-house"/></svg></span>
+        </div>
+        <h1 class="title">{{ login.Title }}</h1>
+{% if redirect_host %}
+        <p class="description">Log in to continue to <span class="target">{{ redirect_host }}</span>.</p>
+{% elif cookie_domain %}
+        <p class="description">Log in to use the services on <span class="target">{{ cookie_domain }}</span>.</p>
+{% endif %}
+      </header>
+
+      <form class="surface login-card stack" method="post" action="login">
+        <input type="hidden" name="redirect" value="{{ redirect }}">
+        <div>
+          <label class="label" for="login-username">Username</label>
+          <input id="login-username" name="username" class="field" type="text" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" required{% if not username %} autofocus{% endif %}>
+        </div>
+        <div>
+          <label class="label" for="login-password">Password</label>
+          <input id="login-password" name="password" class="field" type="password" autocomplete="current-password" required{% if username %} autofocus{% endif %}>
+        </div>
+{% for alert in alerts %}
+        <div class="alert {{ alert.Class() }}" role="alert">
+          <svg class="icon" aria-hidden="true" focusable="false"><use href="ui/vendor/icons.svg#{{ alert.Icon() }}"/></svg>
+          <span><strong>{{ alert.Heading }}:</strong> {{ alert.Message }}</span>
+        </div>
+{% endfor %}
+        <button id="login-btn" class="btn btn-primary btn-block" type="submit">
+          <svg class="icon" aria-hidden="true" focusable="false"><use href="ui/vendor/icons.svg#log-in"/></svg>Log in
+        </button>
+      </form>
+
+    </main>
+  </body>
+</html>

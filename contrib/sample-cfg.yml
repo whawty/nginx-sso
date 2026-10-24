@@ -111,7 +111,8 @@ web:
   # base-path: /sso
   login:
     title: "example.com SSO"
-    #### this directory must contain login.htmpl and logged-in.htmpl, if left empty the built-in assets will be used
+    #### this directory must contain login.htmpl and logged-in.htmpl, if left empty the built-in templates will be used.
+    #### See TEMPLATES in the man page for the values they get and what the Content-Security-Policy allows.
     # templates: path/to/templates
   revocations:
     tokens:

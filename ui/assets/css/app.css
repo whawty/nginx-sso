@@ -1,0 +1,41 @@
+/*
+ * whawty.nginx-sso web interface
+ *
+ * Styles specific to whawty.nginx-sso, everything shared with other whawty
+ * apps lives in base.css.
+ */
+
+/* --- Header ----------------------------------------------------------- */
+
+/* "Log out" is a link so services can link to logout as well */
+a.btn { text-decoration: none; }
+
+/* the host users are sent to after logging in, or the cookie domain */
+.description .target {
+  color: var(--ink);
+  font-family: var(--mono); font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* --- Alerts ----------------------------------------------------------- */
+
+/* base.css has .alert-error, these are the other levels of ui.Alert */
+.alert-warning { background: var(--warn-bg); color: var(--warn); }
+.alert-success { background: var(--ok-bg); color: var(--ok); }
+.alert-info    { background: var(--hover); color: var(--ink); }
+
+/* --- Sessions --------------------------------------------------------- */
+
+.block + .block { margin-top: 2.25rem; }
+.block > .alert { margin-bottom: 0.75rem; }
+
+.monogram .icon { width: 1.15rem; height: 1.15rem; }
+
+/* browser or operating system with its logo:
+   <span class="agent"><svg class="icon">…</svg>Firefox</span> */
+.agent { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.agent .icon { width: 1em; height: 1em; }
+.agent-on { color: var(--muted); font-weight: 400; }
+.agent-line { display: flex; align-items: center; flex-wrap: wrap; gap: 0.2rem 0.5rem; }
+
+time { white-space: nowrap; }

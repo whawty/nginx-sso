@@ -37,5 +37,8 @@ import (
 	"os"
 )
 
+// Templates are the built-in pongo2 templates of the web interface.
+var Templates fs.FS = os.DirFS("ui/templates")
+
+// Assets are the static files of the web interface.
 var Assets fs.FS = os.DirFS("ui/assets")
-var StaticAssets fs.FS = &filteredFilesystem{base: Assets}

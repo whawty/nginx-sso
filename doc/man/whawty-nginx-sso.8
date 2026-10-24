@@ -106,6 +106,91 @@ Users are only sent on to paths on the same host and to http(s) URLs of hosts wh
 All links and redirects of the web interface are relative\&. If a reverse proxy strips a path prefix before passing requests on, leave \fBweb\&.base\-path\fR unset\&. Set it if the proxy passes the prefix on, i\&.e\&. for nginx \fIlocation /sso/ { proxy_pass \fR\fIhttp://127\&.0\&.0\&.1:1234\fR\fI; }\fR and \fIweb\&.base\-path: /sso\fR\&. See contrib/nginx\-vhost and contrib/nginx\-shared\-vhost for examples\&.
 .sp
 Form posts which other sites make on behalf of users are rejected\&. Browsers which don\(cqt send the header Sec\-Fetch\-Site are checked by comparing the Origin header with the Host header, so the reverse proxy should pass the Host header on (for nginx \fIproxy_set_header Host $host;\fR)\&.
+.sp
+All responses carry a Content\-Security\-Policy which only allows styles and images of the web interface itself, no scripts at all and no inline styles\&. Forms may only be sent to the web interface, which may redirect to the cookie domain and its subdomains\&. The pages must not be embedded by other sites\&. Custom templates (see TEMPLATES) have to stay within these limits as well\&.
+.sp
+The colours of the web interface can be changed without rebuilding \fBwhawty\-nginx\-sso\fR: the pages load \fI<base\-path>/ui/css/theme\&.css\fR last, which is empty, so the reverse proxy can serve a replacement for it\&. See the comment in ui/assets/css/theme\&.css of the sources for an example\&.
+.SH "TEMPLATES"
+.sp
+\fBweb\&.login\&.templates\fR replaces the built\-in templates with the files login\&.htmpl and logged\-in\&.htmpl from the given directory\&. They are pongo2 templates (a syntax like the one of Django templates), the built\-in ones in ui/templates of the sources are a good starting point\&. Values are escaped automatically\&.
+.sp
+All links must be relative\&. The static files of the web interface are available below \fIui/\fR, i\&.e\&. \fIui/css/base\&.css\fR, \fIui/css/app\&.css\fR, \fIui/css/theme\&.css\fR, \fIui/img/favicon\&.svg\fR and the icons as \fI<svg><use href="ui/vendor/icons\&.svg#<icon>"/></svg>\fR\&. The login form is a POST request to \fIlogin\fR with the fields \fBusername\fR, \fBpassword\fR and \fBredirect\fR\&. Other sessions are revoked with POST requests to \fIlogout\fR with the field \fBid\fR, \fIlogout\fR logs out of the own session\&.
+.sp
+login\&.htmpl gets these values:
+.PP
+\fBlogin\&.Title\fR
+.RS 4
+The title configured with
+\fBweb\&.login\&.title\fR\&.
+.RE
+.PP
+\fBredirect\fR
+.RS 4
+Where to send users after logging in, already checked to be safe\&. Put it into the field
+\fBredirect\fR
+of the form\&.
+.RE
+.PP
+\fBredirect_host\fR
+.RS 4
+The host of
+\fBredirect\fR
+if it is a URL\&.
+.RE
+.PP
+\fBcookie_domain\fR
+.RS 4
+The cookie domain, if one is configured\&.
+.RE
+.PP
+\fBusername\fR
+.RS 4
+The username of a failed login attempt\&.
+.RE
+.PP
+\fBalerts\fR
+.RS 4
+A list of errors to show\&. Each has
+\fBHeading\fR,
+\fBMessage\fR
+and
+\fBLevel\fR
+(danger, warning, success or info),
+\fBClass()\fR
+returns the CSS class and
+\fBIcon()\fR
+the name of the icon for it\&.
+.RE
+.sp
+logged\-in\&.htmpl gets \fBlogin\&.Title\fR, \fBcookie_domain\fR and \fBalerts\fR as well as:
+.PP
+\fBsession\fR
+.RS 4
+The session of the request with
+\fBUsername\fR,
+\fBID\fR,
+\fBCreatedAt()\fR
+and
+\fBExpiresAt()\fR\&.
+.RE
+.PP
+\fBcurrent\fR
+.RS 4
+The same session including
+\fBAgent\fR, the browser it was created with:
+\fBAgent\&.Name\fR,
+\fBAgent\&.OS\fR
+and
+\fBAgent\&.DeviceType\fR\&. It may be missing\&.
+.RE
+.PP
+\fBothers\fR
+.RS 4
+The other sessions of the user, newest first, with the same values as
+\fBcurrent\fR\&.
+.RE
+.sp
+Besides the built\-in filters of pongo2 the templates can use \fBtimesince\fR and \fBtimeuntil\fR, which turn times into "2 hours ago" and "6 days from now", and \fBua_icon\fR: \fI{{ s\&.Agent|ua_icon:"Name" }}\fR is the name of the icon of the browser, "OS" and "DeviceType" work the same\&.
 .SH "BUGS"
 .sp
 Most likely there are some bugs in \fBwhawty\-nginx\-sso\fR\&. If you find a bug, please let the developers know at http://github\&.com/whawty/nginx\-sso\&. Of course, pull requests are preferred\&.

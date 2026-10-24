@@ -38,6 +38,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -168,12 +169,29 @@ func (h *HandlerContext) redirectTarget(c *gin.Context, target string) string {
 	return ""
 }
 
+// renderLoggedIn shows the sessions of the user of session: "current" is the
+// session of the request including the browser it was created with, "others"
+// are all other sessions of the user, newest first.
 func (h *HandlerContext) renderLoggedIn(c *gin.Context, code int, session *cookie.Session, alerts []ui.Alert) {
-	tmplCtx := pongo2.Context{"login": h.conf.Login, "session": session}
+	tmplCtx := pongo2.Context{
+		"login":         h.conf.Login,
+		"session":       session,
+		"cookie_domain": strings.TrimPrefix(h.cookies.Options().Domain, "."),
+	}
 	if sessions, err := h.cookies.ListUser(session.Username); err == nil {
-		tmplCtx["sessions"] = sessions
+		var others cookie.SessionFullList
+		for _, s := range sessions {
+			if s.ID == session.ID {
+				tmplCtx["current"] = s
+			} else {
+				others = append(others, s)
+			}
+		}
+		// ULIDs sort by the time they were created at
+		sort.Slice(others, func(i, j int) bool { return others[i].ID.Compare(others[j].ID) > 0 })
+		tmplCtx["others"] = others
 	} else {
-		alerts = append(alerts, ui.Alert{Level: ui.AlertDanger, Heading: "failed to load user sessions", Message: err.Error()})
+		alerts = append(alerts, ui.Alert{Level: ui.AlertDanger, Heading: "Failed to load the sessions", Message: err.Error()})
 	}
 	tmplCtx["alerts"] = alerts
 	c.HTML(code, "logged-in.htmpl", tmplCtx)
@@ -216,8 +234,24 @@ func (h *HandlerContext) handleLoginGet(c *gin.Context) {
 	}
 
 	redirect, _ := c.GetQuery("redir")
-	tmplCtx := pongo2.Context{"login": h.conf.Login, "redirect": h.redirectTarget(c, redirect)}
-	c.HTML(http.StatusOK, "login.htmpl", tmplCtx)
+	h.renderLogin(c, http.StatusOK, h.redirectTarget(c, redirect), "", nil)
+}
+
+// renderLogin shows the login form. redirect must be safe already (see
+// redirectTarget), username prefills the username field.
+func (h *HandlerContext) renderLogin(c *gin.Context, code int, redirect, username string, alerts []ui.Alert) {
+	tmplCtx := pongo2.Context{
+		"login":         h.conf.Login,
+		"redirect":      redirect,
+		"username":      username,
+		"alerts":        alerts,
+		"cookie_domain": strings.TrimPrefix(h.cookies.Options().Domain, "."),
+	}
+	// the host users are sent to, the login form says where they will end up
+	if u, err := url.Parse(redirect); err == nil && u.Host != "" {
+		tmplCtx["redirect_host"] = u.Hostname()
+	}
+	c.HTML(code, "login.htmpl", tmplCtx)
 	logTemplateErrors(c)
 }
 
@@ -225,27 +259,23 @@ func (h *HandlerContext) handleLoginPost(c *gin.Context) {
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 	redirect := h.redirectTarget(c, c.PostForm("redirect"))
-	tmplCtx := pongo2.Context{"login": h.conf.Login, "redirect": redirect}
 	if username == "" || password == "" {
-		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "missing parameter", Message: "username and password are mandatory"}
-		c.HTML(http.StatusBadRequest, "login.htmpl", tmplCtx)
-		logTemplateErrors(c)
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "Missing parameter", Message: "username and password are mandatory"}
+		h.renderLogin(c, http.StatusBadRequest, redirect, username, []ui.Alert{alert})
 		return
 	}
 
 	err := h.auth.Authenticate(username, password)
 	if err != nil {
-		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "login failed", Message: err.Error()}
-		c.HTML(http.StatusBadRequest, "login.htmpl", tmplCtx)
-		logTemplateErrors(c)
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "Login failed", Message: err.Error()}
+		h.renderLogin(c, http.StatusBadRequest, redirect, username, []ui.Alert{alert})
 		return
 	}
 
 	value, opts, err := h.cookies.New(username, getAgentInfo(c))
 	if err != nil {
-		tmplCtx["alert"] = ui.Alert{Level: ui.AlertDanger, Heading: "failed to generate cookie", Message: err.Error()}
-		c.HTML(http.StatusBadRequest, "login.htmpl", tmplCtx)
-		logTemplateErrors(c)
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "Failed to create session", Message: err.Error()}
+		h.renderLogin(c, http.StatusInternalServerError, redirect, username, []ui.Alert{alert})
 		return
 	}
 	h.setSessionCookie(c, value, opts.MaxAge)
@@ -270,7 +300,7 @@ func (h *HandlerContext) setSessionCookie(c *gin.Context, value string, maxAge i
 func (h *HandlerContext) logout(c *gin.Context, redirect string) {
 	if session, err := h.verifyCookie(c); err == nil {
 		if err = h.cookies.Revoke(*session); err != nil {
-			alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
+			alert := ui.Alert{Level: ui.AlertDanger, Heading: "Failed to revoke the session", Message: err.Error()}
 			h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
 			return
 		}
@@ -313,12 +343,12 @@ func (h *HandlerContext) handleLogoutPost(c *gin.Context) {
 	}
 	id, err := ulid.ParseStrict(idParam)
 	if err != nil {
-		alert := ui.Alert{Level: ui.AlertDanger, Heading: "invalid session", Message: err.Error()}
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "Invalid session", Message: err.Error()}
 		h.renderLoggedIn(c, http.StatusBadRequest, session, []ui.Alert{alert})
 		return
 	}
 	if err = h.cookies.RevokeID(session.Username, id); err != nil {
-		alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "Failed to revoke the session", Message: err.Error()}
 		h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
 		return
 	}
@@ -409,10 +439,16 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 		config.Login.Title = "whawty.nginx-sso Login"
 	}
 
+	csp, err := contentSecurityPolicy(cookies.Options().Domain)
+	if err != nil {
+		return nil, err
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(securityHeaders(csp))
 	r.HandleMethodNotAllowed = true
 	// gin would send absolute redirects which don't work behind proxies
 	// stripping a path prefix
@@ -420,12 +456,11 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 
 	var htmlTmplLoader pongo2.TemplateLoader
 	if config.Login.TemplatesPath != "" {
-		var err error
 		if htmlTmplLoader, err = pongo2.NewLocalFileSystemLoader(config.Login.TemplatesPath); err != nil {
 			return nil, err
 		}
 	} else {
-		htmlTmplLoader = pongo2.NewFSLoader(ui.Assets)
+		htmlTmplLoader = pongo2.NewFSLoader(ui.Templates)
 	}
 	r.HTMLRender = pongo2gin.New(pongo2gin.RenderOptions{
 		TemplateSet: pongo2.NewSet("html", htmlTmplLoader),
@@ -441,15 +476,15 @@ func newWebHandler(config *WebConfig, prom *MetricsHandler, cookies *cookie.Stor
 	}
 	base := r.Group(config.BasePath + "/")
 	base.GET("/", func(c *gin.Context) { relativeRedirect(c, http.StatusSeeOther, "login") })
-	base.StaticFS("/ui/", http.FS(ui.StaticAssets))
+	base.StaticFS("/ui/", http.FS(ui.Assets))
 
 	g := base.Group("/")
 	if reg := prom.reg(); reg != nil {
 		g.Use(promMiddleware())
-		if err := reg.Register(webRequests); err != nil {
+		if err = reg.Register(webRequests); err != nil {
 			return nil, err
 		}
-		if err := reg.Register(webRequestDuration); err != nil {
+		if err = reg.Register(webRequestDuration); err != nil {
 			return nil, err
 		}
 	}

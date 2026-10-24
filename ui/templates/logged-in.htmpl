@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ login.Title }}</title>
+    <link href="ui/img/favicon.svg" rel="icon" type="image/svg+xml">
+    <link href="ui/css/base.css" rel="stylesheet">
+    <link href="ui/css/app.css" rel="stylesheet">
+    <link href="ui/css/theme.css" rel="stylesheet">
+  </head>
+  <body>
+{% macro icon(name) %}<svg class="icon" aria-hidden="true" focusable="false"><use href="ui/vendor/icons.svg#{{ name }}"/></svg>{% endmacro %}
+{% macro agent(a) %}
+            <span class="agent">{{ icon(a|ua_icon:"Name") }}{{ a.Name|default:"Unknown browser" }}</span>
+{% if a.OS %}
+            <span class="agent-on">on</span>
+            <span class="agent">{{ icon(a|ua_icon:"OS") }}{{ a.OS }}</span>
+{% endif %}
+{% endmacro %}
+{% macro when(t, relative) %}<time datetime="{{ t|time:"2006-01-02T15:04:05Z07:00" }}" title="{{ t|time:"2 Jan 2006, 15:04 MST" }}">{{ relative }}</time>{% endmacro %}
+    <main class="page">
+
+      <header class="host">
+        <div class="brand-row">
+          <span class="mark">{{ icon("shield-house") }}</span>
+          <div class="session">
+            <span>Logged in as <strong>{{ session.Username }}</strong></span>
+            <a class="btn btn-sm" href="logout">{{ icon("log-out") }}Log out</a>
+          </div>
+        </div>
+        <h1 class="title">{{ login.Title }}</h1>
+{% if cookie_domain %}
+        <p class="description">Your login is valid for all services on <span class="target">{{ cookie_domain }}</span>.</p>
+{% endif %}
+      </header>
+
+      <section id="this-device" class="block" aria-labelledby="this-device-title">
+        <div class="section-head"><h2 id="this-device-title" class="section-title">This device</h2></div>
+        <div class="surface">
+          <dl class="facts">
+{% if current %}
+            <div>
+              <dt>Device</dt>
+              <dd><span class="agent-line">{{ agent(current.Agent) }}<span class="agent-on">· {{ current.Agent.DeviceType|capfirst }}</span></span></dd>
+            </div>
+{% endif %}
+            <div>
+              <dt>Logged in</dt>
+              <dd>{{ when(session.CreatedAt(), session.CreatedAt()|timesince) }}<small>{{ session.CreatedAt()|time:"2 Jan 2006, 15:04 MST" }}</small></dd>
+            </div>
+            <div>
+              <dt>Expires</dt>
+              <dd>{{ when(session.ExpiresAt(), session.ExpiresAt()|timeuntil) }}<small>{{ session.ExpiresAt()|time:"2 Jan 2006, 15:04 MST" }}</small></dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section id="other-sessions" class="block" aria-labelledby="other-sessions-title">
+        <div class="section-head"><h2 id="other-sessions-title" class="section-title">Other sessions <span class="count">{{ others|length }}</span></h2></div>
+{% for alert in alerts %}
+        <div class="alert {{ alert.Class() }}" role="alert">
+          {{ icon(alert.Icon()) }}
+          <span><strong>{{ alert.Heading }}:</strong> {{ alert.Message }}</span>
+        </div>
+{% endfor %}
+        <div class="surface">
+{% if others %}
+          <ul class="rows">
+{% for other in others %}
+            <li class="row is-hoverable">
+              <span class="monogram">{{ icon(other.Agent|ua_icon:"DeviceType") }}</span>
+              <span class="row-name agent-line">{{ agent(other.Agent) }}</span>
+              <span class="row-note">{{ other.Agent.DeviceType|capfirst }}<span class="sep">·</span>logged in {{ when(other.CreatedAt(), other.CreatedAt()|timesince) }}<span class="sep">·</span>expires {{ when(other.ExpiresAt(), other.ExpiresAt()|timeuntil) }}</span>
+              <form class="row-actions" method="post" action="logout">
+                <input type="hidden" name="id" value="{{ other.ID }}">
+                <button class="btn btn-sm" type="submit">{{ icon("log-out") }}Log out<span class="visually-hidden"> {{ other.Agent.Name|default:"unknown browser" }}{% if other.Agent.OS %} on {{ other.Agent.OS }}{% endif %}</span></button>
+              </form>
+            </li>
+{% endfor %}
+          </ul>
+{% else %}
+          <p class="empty">You are not logged in anywhere else.</p>
+{% endif %}
+        </div>
+      </section>
+
+    </main>
+  </body>
+</html>
