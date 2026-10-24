@@ -109,3 +109,17 @@ func TestFilterUserAgentIcon(t *testing.T) {
 		}
 	}
 }
+
+func TestAlertClassAndIcon(t *testing.T) {
+	for level, want := range map[AlertLevel][2]string{
+		AlertDanger:  {"alert-error", "circle-alert"},
+		AlertWarning: {"alert-warning", "triangle-alert"},
+		AlertSuccess: {"alert-success", "circle-check"},
+		AlertInfo:    {"alert-info", "info"},
+	} {
+		a := Alert{Level: level}
+		if a.Class() != want[0] || a.Icon() != want[1] {
+			t.Errorf("level %s: got class %q and icon %q, want %q and %q", level, a.Class(), a.Icon(), want[0], want[1])
+		}
+	}
+}

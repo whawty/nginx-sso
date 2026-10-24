@@ -585,3 +585,46 @@ func TestTemplatesEscapeOnce(t *testing.T) {
 		t.Errorf("logged-in page contains doubly escaped value: %s", m)
 	}
 }
+
+func TestLoginPage(t *testing.T) {
+	description := regexp.MustCompile(`(?s)<p class="description">.*?</p>`)
+	for _, test := range []struct {
+		cookieDomain, redirect string
+		want                   string // the description, "" for none
+	}{
+		{"example.com", "https://wiki.example.com/x", `Log in to continue to <span class="target">wiki.example.com</span>.`},
+		{"example.com", "/x", `Log in to use the services on <span class="target">example.com</span>.`},
+		{".example.com", "", `Log in to use the services on <span class="target">example.com</span>.`},
+		{"", "/x", ""},
+	} {
+		h := newTestHandler(t, WebConfig{}, test.cookieDomain)
+		body := request(h, http.MethodGet, "/login?redir="+url.QueryEscape(test.redirect), nil).Body.String()
+		got := description.FindString(body)
+		if test.want == "" && got != "" {
+			t.Errorf("cookie domain %q, redirect %q: got %s, want no description", test.cookieDomain, test.redirect, got)
+		} else if !strings.Contains(got, test.want) {
+			t.Errorf("cookie domain %q, redirect %q: got %s, want %s", test.cookieDomain, test.redirect, got, test.want)
+		}
+		if strings.Contains(body, "<script") {
+			t.Errorf("cookie domain %q, redirect %q: login page contains a script", test.cookieDomain, test.redirect)
+		}
+	}
+
+	// after a failed login the username stays and the password field gets the focus
+	h := newTestHandler(t, WebConfig{}, "")
+	body := request(h, http.MethodPost, "/login", url.Values{"username": {"alice"}, "password": {"wrong"}}).Body.String()
+	for _, want := range []string{
+		`value="alice"`,
+		`<div class="alert alert-error" role="alert">`,
+		`icons.svg#circle-alert`,
+		`<strong>Login failed:</strong> invalid username or password`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("failed login: page does not contain %s", want)
+		}
+	}
+	password := regexp.MustCompile(`<input id="login-password"[^>]*>`).FindString(body)
+	if !strings.Contains(password, "autofocus") {
+		t.Errorf("failed login: password field has no autofocus: %s", password)
+	}
+}

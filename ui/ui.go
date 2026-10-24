@@ -64,6 +64,28 @@ type Alert struct {
 	Message string
 }
 
+// Class returns the CSS class of the alert, see css/base.css and css/app.css.
+func (a Alert) Class() string {
+	if a.Level == AlertDanger {
+		return "alert-error"
+	}
+	return "alert-" + string(a.Level)
+}
+
+// Icon returns the name of the icon of the alert in the sprite.
+func (a Alert) Icon() string {
+	switch a.Level {
+	case AlertWarning:
+		return "triangle-alert"
+	case AlertSuccess:
+		return "circle-check"
+	case AlertInfo:
+		return "info"
+	default:
+		return "circle-alert"
+	}
+}
+
 func fontAwesomeIconFromAgentInfo(ai cookie.AgentInfo, attribute string) (*pongo2.Value, *pongo2.Error) {
 	switch attribute {
 	case "Name":
