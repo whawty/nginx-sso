@@ -81,10 +81,15 @@ func cmdRun(c *cli.Context) error {
 	return nil
 }
 
+// version is printed by --version. The release builds set it to the version
+// of the release tag (see .github/workflows/release.yml), builds using the
+// Makefile to what git describe says.
+var version = "0.4.0"
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "whawty-nginx-sso"
-	app.Version = "0.1"
+	app.Version = version
 	app.Usage = "simple SSO for nginx"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{

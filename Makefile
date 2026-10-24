@@ -35,6 +35,11 @@ endif
 
 EXECUTEABLE := whawty-nginx-sso
 
+# the version printed by --version: the latest tag without the leading v, plus
+# the number of commits since then and the commit if HEAD is not tagged
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null | sed -e 's/^v//')
+LDFLAGS := $(if $(VERSION),-X main.version=$(VERSION))
+
 all: build
 .PHONY: format vet cover serve-cover clean distclean ui-icons
 
@@ -59,10 +64,10 @@ serve-cover:
 	cd ./.coverage; python3 -m http.server
 
 build: test
-	$(GOCMD) build -o $(EXECUTEABLE) ./cmd/whawty-nginx-sso
+	$(GOCMD) build -ldflags "$(LDFLAGS)" -o $(EXECUTEABLE) ./cmd/whawty-nginx-sso
 
 dev: test
-	$(GOCMD) build -o $(EXECUTEABLE) -tags=dev ./cmd/whawty-nginx-sso
+	$(GOCMD) build -ldflags "$(LDFLAGS)" -o $(EXECUTEABLE) -tags=dev ./cmd/whawty-nginx-sso
 
 clean:
 	rm -f $(EXECUTEABLE)
