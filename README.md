@@ -1,7 +1,5 @@
 # whawty.nginx-sso
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/whawty/nginx-sso)](https://goreportcard.com/report/github.com/whawty/nginx-sso)
-
 whawty-nginx-sso is a simple agent that can be used to implement a cookie-based SSO scheme for
 the web. For this purpose the agent hosts a login form to prompt users for login credentials.
 These credentials are then verified using the configured authentication backend and in case they
