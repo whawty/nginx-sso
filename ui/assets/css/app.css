@@ -7,6 +7,9 @@
 
 /* --- Header ----------------------------------------------------------- */
 
+/* "Log out" is a link so services can link to logout as well */
+a.btn { text-decoration: none; }
+
 /* the host users are sent to after logging in, or the cookie domain */
 .description .target {
   color: var(--ink);

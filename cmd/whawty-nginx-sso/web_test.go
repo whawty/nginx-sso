@@ -41,6 +41,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/whawty/nginx-sso/cookie"
 )
@@ -626,5 +627,73 @@ func TestLoginPage(t *testing.T) {
 	password := regexp.MustCompile(`<input id="login-password"[^>]*>`).FindString(body)
 	if !strings.Contains(password, "autofocus") {
 		t.Errorf("failed login: password field has no autofocus: %s", password)
+	}
+}
+
+// loginAs logs in alice with the browser userAgent and returns the session cookie.
+func loginAs(t *testing.T, h http.Handler, userAgent string) *http.Cookie {
+	t.Helper()
+	form := url.Values{"username": {"alice"}, "password": {"secret"}}
+	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", userAgent)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	for _, c := range rec.Result().Cookies() {
+		if c.MaxAge > 0 {
+			return c
+		}
+	}
+	t.Fatalf("login with user agent %q failed: %d", userAgent, rec.Code)
+	return nil
+}
+
+func TestLoggedInPage(t *testing.T) {
+	h := newTestHandler(t, WebConfig{}, "example.com")
+	const (
+		firefox = "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+		android = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36"
+		edge    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"
+	)
+
+	own := loginAs(t, h, firefox)
+	body := request(h, http.MethodGet, "/login", nil, own).Body.String()
+	for _, want := range []string{
+		`Logged in as <strong>alice</strong>`,
+		`<a class="btn btn-sm" href="logout">`,
+		`Your login is valid for all services on <span class="target">example.com</span>.`,
+		`icons.svg#brand-firefox-browser"/></svg>Firefox</span>`,
+		`icons.svg#brand-linux"/></svg>Linux</span>`,
+		`<span class="agent-on">· Desktop</span>`,
+		`Other sessions <span class="count">0</span>`,
+		`<p class="empty">You are not logged in anywhere else.</p>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("one session: page does not contain %s", want)
+		}
+	}
+
+	// sessions are created at least a millisecond apart, so their order is defined
+	time.Sleep(2 * time.Millisecond)
+	loginAs(t, h, android)
+	time.Sleep(2 * time.Millisecond)
+	loginAs(t, h, edge)
+	body = request(h, http.MethodGet, "/login", nil, own).Body.String()
+	if !strings.Contains(body, `Other sessions <span class="count">2</span>`) {
+		t.Error("three sessions: page does not count two other sessions")
+	}
+	if strings.Count(body, `<form class="row-actions" method="post" action="logout">`) != 2 || strings.Count(body, `<input type="hidden" name="id" value="`) != 2 {
+		t.Error("three sessions: page does not have a logout form with the session ID for each other session")
+	}
+	// newest first: Edge, then Chrome on Android
+	edgeAt, androidAt := strings.Index(body, `Log out<span class="visually-hidden"> Edge on Windows</span>`), strings.Index(body, `Log out<span class="visually-hidden"> Chrome on Android</span>`)
+	if edgeAt < 0 || androidAt < 0 || edgeAt > androidAt {
+		t.Errorf("three sessions: other sessions are not listed newest first (Edge at %d, Android at %d)", edgeAt, androidAt)
+	}
+	if !strings.Contains(body, `icons.svg#smartphone"/></svg></span>`) || !strings.Contains(body, `>Mobile<span class="sep">`) {
+		t.Error("three sessions: the phone is not shown as such")
+	}
+	if n := strings.Count(body, "brand-firefox-browser"); n != 1 {
+		t.Errorf("three sessions: Firefox shows up %d times, want only for this device", n)
 	}
 }

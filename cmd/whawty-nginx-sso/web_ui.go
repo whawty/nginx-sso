@@ -41,8 +41,10 @@ import (
 var validHostname = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
 
 // contentSecurityPolicy returns the Content-Security-Policy of the web
-// interface. The pages may only load scripts, styles, images and fonts from
-// the web interface itself and must not be embedded by other sites.
+// interface. The pages may only load styles and images (the icons) from the
+// web interface itself and must not be embedded by other sites. They don't
+// use scripts, so default-src 'none' forbids them like everything else not
+// allowed explicitly.
 //
 // Browsers also apply form-action to the redirect after a form post. After
 // logging in users are sent on to the hosts which get the session cookie (see
@@ -59,10 +61,8 @@ func contentSecurityPolicy(cookieDomain string) (string, error) {
 	}
 	return strings.Join([]string{
 		"default-src 'none'",
-		"script-src 'self'",
 		"style-src 'self'",
-		"img-src 'self' data:", // bootstrap.css uses data: URIs for some icons
-		"font-src 'self'",
+		"img-src 'self'",
 		"form-action " + formAction,
 		"frame-ancestors 'none'",
 		"base-uri 'none'",

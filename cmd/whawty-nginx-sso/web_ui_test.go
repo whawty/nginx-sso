@@ -57,10 +57,14 @@ func TestContentSecurityPolicy(t *testing.T) {
 		if !strings.Contains(csp, formAction) {
 			t.Errorf("cookie domain %q: policy %q does not contain %q", domain, csp, formAction)
 		}
-		for _, directive := range []string{"default-src 'none'", "script-src 'self'", "frame-ancestors 'none'", "base-uri 'none'"} {
+		for _, directive := range []string{"default-src 'none'", "style-src 'self'", "img-src 'self';", "frame-ancestors 'none'", "base-uri 'none'"} {
 			if !strings.Contains(csp, directive) {
 				t.Errorf("cookie domain %q: policy %q does not contain %q", domain, csp, directive)
 			}
+		}
+		// no scripts, they fall back to default-src 'none'
+		if strings.Contains(csp, "script-src") {
+			t.Errorf("cookie domain %q: policy %q allows scripts", domain, csp)
 		}
 	}
 
@@ -108,25 +112,19 @@ func pages(t *testing.T) map[string]string {
 	return result
 }
 
-// The Content-Security-Policy does not allow inline scripts and styles.
-func TestTemplatesHaveNoInlineCode(t *testing.T) {
-	scriptTag := regexp.MustCompile(`(?is)<script\b[^>]*>`)
-	scriptSrc := regexp.MustCompile(`(?is)\ssrc\s*=`)
-	inline := map[string]*regexp.Regexp{
+// The Content-Security-Policy allows no scripts at all and no inline styles.
+func TestTemplatesHaveNoScriptsOrInlineStyles(t *testing.T) {
+	forbidden := map[string]*regexp.Regexp{
+		"script":          regexp.MustCompile(`(?i)<script\b`),
 		"style element":   regexp.MustCompile(`(?i)<style\b`),
 		"style attribute": regexp.MustCompile(`(?i)\sstyle\s*=`),
 		"event handler":   regexp.MustCompile(`(?i)\son[a-z]+\s*=`),
 		"javascript: URL": regexp.MustCompile(`(?i)javascript:`),
 	}
 	for name, page := range pages(t) {
-		for what, re := range inline {
+		for what, re := range forbidden {
 			if m := re.FindString(page); m != "" {
 				t.Errorf("%s: contains %s: %s", name, what, m)
-			}
-		}
-		for _, tag := range scriptTag.FindAllString(page, -1) {
-			if !scriptSrc.MatchString(tag) {
-				t.Errorf("%s: contains inline script: %s", name, tag)
 			}
 		}
 	}
@@ -145,10 +143,10 @@ func TestUIAssetsAreSelfContained(t *testing.T) {
 		for _, m := range attr.FindAllStringSubmatch(page, -1) {
 			kind, target := strings.ToLower(m[1]), m[2]
 			switch {
+			case target == "login" || target == "logout":
+				// pages of the web interface
 			case kind == "action":
-				if target != "login" && target != "logout" {
-					t.Errorf("%s: form action %q is not an endpoint of the web interface", name, target)
-				}
+				t.Errorf("%s: form action %q is not an endpoint of the web interface", name, target)
 			case strings.HasPrefix(target, "ui/"):
 				file, id, _ := strings.Cut(strings.TrimPrefix(target, "ui/"), "#")
 				if !exists(file) {

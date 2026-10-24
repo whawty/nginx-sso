@@ -1,115 +1,92 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>{{ login.Title }}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="whawty nginx-sso login">
-    <meta name="author" content="Christian Pointner <equinox@spreadspace.org>">
-
-    <link href="ui/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="ui/fontawesome/css/fontawesome.min.css" rel="stylesheet">
-    <link href="ui/fontawesome/css/solid.min.css" rel="stylesheet">
-    <link href="ui/fontawesome/css/brands.min.css" rel="stylesheet">
-    <link href="ui/css/main.css" rel="stylesheet">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ login.Title }}</title>
+    <link href="ui/img/favicon.svg" rel="icon" type="image/svg+xml">
+    <link href="ui/css/base.css" rel="stylesheet">
+    <link href="ui/css/app.css" rel="stylesheet">
+    <link href="ui/css/theme.css" rel="stylesheet">
   </head>
   <body>
-    <div class="container-fluid">
-      <div class="topspacer">&nbsp;</div>
-      <div id="user-view">
-        <div class="row">
-          <div class="col-md-3"></div>
-          <div class="col-md-6">
-            <h1>User: <strong class="username">{{ session.Username }}</strong></h1>
-          </div>
-          <div class="col-md-3"></div>
-        </div>
+{% macro icon(name) %}<svg class="icon" aria-hidden="true" focusable="false"><use href="ui/vendor/icons.svg#{{ name }}"/></svg>{% endmacro %}
+{% macro agent(a) %}
+            <span class="agent">{{ icon(a|ua_icon:"Name") }}{{ a.Name|default:"Unknown browser" }}</span>
+{% if a.OS %}
+            <span class="agent-on">on</span>
+            <span class="agent">{{ icon(a|ua_icon:"OS") }}{{ a.OS }}</span>
+{% endif %}
+{% endmacro %}
+{% macro when(t, relative) %}<time datetime="{{ t|time:"2006-01-02T15:04:05Z07:00" }}" title="{{ t|time:"2 Jan 2006, 15:04 MST" }}">{{ relative }}</time>{% endmacro %}
+    <main class="page">
 
-        <div class="row">
-          <div class="col-md-3"></div>
-          <div class="col-md-6">
-            created: <strong data-bs-toggle="tooltip" data-bs-title="{{ session.CreatedAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ session.CreatedAt() | timesince }}</strong>
+      <header class="host">
+        <div class="brand-row">
+          <span class="mark">{{ icon("shield-house") }}</span>
+          <div class="session">
+            <span>Logged in as <strong>{{ session.Username }}</strong></span>
+            <a class="btn btn-sm" href="logout">{{ icon("log-out") }}Log out</a>
           </div>
-          <div class="col-md-3"></div>
         </div>
-        <div class="row">
-          <div class="col-md-3"></div>
-          <div class="col-md-6">
-            expires: <strong data-bs-toggle="tooltip" data-bs-title="{{ session.ExpiresAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ session.ExpiresAt() | timeuntil }}</strong>
-          </div>
-          <div class="col-md-3"></div>
-        </div>
+        <h1 class="title">{{ login.Title }}</h1>
+{% if cookie_domain %}
+        <p class="description">Your login is valid for all services on <span class="target">{{ cookie_domain }}</span>.</p>
+{% endif %}
+      </header>
 
-        <div class="row">
-          <div class="col-md-3"></div>
-          <div class="col-md-6">
-            <form method="get" action="logout">
-              <button type="submit" class="btn btn-danger btn-lg"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
-            </form>
-          </div>
-          <div class="col-md-3"></div>
-        </div>
-      </div>
-      <div class="topspacer">&nbsp;</div>
-      <div id="sessions-view">
-        <div class="row">
-          <div class="col-md-2"></div>
-          <div class="col-md-10"><h2>Other Sessions</h2></div>
-        </div>
-{% for alert in alerts %}
-        <div class="row">
-          <div class="col-md-2"></div>
-          <div class="col-md-8">
-            <div class="alertbox">
-               <div class="alert alert-{{ alert.Level }} alert-dismissible fade show" role="alert">
-                 <strong>{{ alert.Heading }}:</strong> {{ alert.Message }}
-                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-               </div>
+      <section id="this-device" class="block" aria-labelledby="this-device-title">
+        <div class="section-head"><h2 id="this-device-title" class="section-title">This device</h2></div>
+        <div class="surface">
+          <dl class="facts">
+{% if current %}
+            <div>
+              <dt>Device</dt>
+              <dd><span class="agent-line">{{ agent(current.Agent) }}<span class="agent-on">· {{ current.Agent.DeviceType|capfirst }}</span></span></dd>
             </div>
-          </div>
-          <div class="col-md-2"></div>
+{% endif %}
+            <div>
+              <dt>Logged in</dt>
+              <dd>{{ when(session.CreatedAt(), session.CreatedAt()|timesince) }}<small>{{ session.CreatedAt()|time:"2 Jan 2006, 15:04 MST" }}</small></dd>
+            </div>
+            <div>
+              <dt>Expires</dt>
+              <dd>{{ when(session.ExpiresAt(), session.ExpiresAt()|timeuntil) }}<small>{{ session.ExpiresAt()|time:"2 Jan 2006, 15:04 MST" }}</small></dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section id="other-sessions" class="block" aria-labelledby="other-sessions-title">
+        <div class="section-head"><h2 id="other-sessions-title" class="section-title">Other sessions <span class="count">{{ others|length }}</span></h2></div>
+{% for alert in alerts %}
+        <div class="alert {{ alert.Class() }}" role="alert">
+          {{ icon(alert.Icon()) }}
+          <span><strong>{{ alert.Heading }}:</strong> {{ alert.Message }}</span>
         </div>
 {% endfor %}
-        <div class="row">
-          <div class="col-md-1"></div>
-          <div class="col-md-10">
-            <table class="table table-striped">
-              <thead>
-                <tr>
-                  <th scope="col">Client</th>
-                  <th scope="col">Created</th>
-                  <th scope="col">Expires</th>
-                  <th scope="col"></th>
-                </tr>
-              </thead>
-              <tbody>
-{% for other in sessions %}
-{%   if other.ID != session.ID %}
-                <tr>
-                  <td>
-                    <i class="{{ other.Agent | fa_icon:'Name' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.Name }} /
-                    <i class="{{ other.Agent | fa_icon:'OS' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.OS }} /
-                    <i class="{{ other.Agent | fa_icon:'DeviceType' }}" aria-hidden="true"></i>&nbsp;{{ other.Agent.DeviceType }}
-                  </td>
-                  <td><span data-bs-toggle="tooltip" data-bs-title="{{ other.CreatedAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ other.CreatedAt() | timesince }}</span></td>
-                  <td><span data-bs-toggle="tooltip" data-bs-title="{{ other.ExpiresAt() | time:'Mon Jan _2 15:04:05 MST 2006' }}">{{ other.ExpiresAt() | timeuntil }}</span></td>
-                  <td>
-                    <form method="post" action="logout">
-                      <input type=hidden name=id value="{{ other.ID }}">
-                      <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;&nbsp;Logout</button>
-                    </form>
-                  </td>
-                </tr>
-{%   endif %}
+        <div class="surface">
+{% if others %}
+          <ul class="rows">
+{% for other in others %}
+            <li class="row is-hoverable">
+              <span class="monogram">{{ icon(other.Agent|ua_icon:"DeviceType") }}</span>
+              <span class="row-name agent-line">{{ agent(other.Agent) }}</span>
+              <span class="row-note">{{ other.Agent.DeviceType|capfirst }}<span class="sep">·</span>logged in {{ when(other.CreatedAt(), other.CreatedAt()|timesince) }}<span class="sep">·</span>expires {{ when(other.ExpiresAt(), other.ExpiresAt()|timeuntil) }}</span>
+              <form class="row-actions" method="post" action="logout">
+                <input type="hidden" name="id" value="{{ other.ID }}">
+                <button class="btn btn-sm" type="submit">{{ icon("log-out") }}Log out<span class="visually-hidden"> {{ other.Agent.Name|default:"unknown browser" }}{% if other.Agent.OS %} on {{ other.Agent.OS }}{% endif %}</span></button>
+              </form>
+            </li>
 {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <div class="col-md-1"></div>
+          </ul>
+{% else %}
+          <p class="empty">You are not logged in anywhere else.</p>
+{% endif %}
         </div>
-      </div>
-    </div>
-    <script src="ui/bootstrap/js/bootstrap.bundle.min.js"></script>
-    <script src="ui/js/tooltips.js"></script>
+      </section>
+
+    </main>
   </body>
 </html>

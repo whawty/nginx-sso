@@ -38,6 +38,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -168,12 +169,29 @@ func (h *HandlerContext) redirectTarget(c *gin.Context, target string) string {
 	return ""
 }
 
+// renderLoggedIn shows the sessions of the user of session: "current" is the
+// session of the request including the browser it was created with, "others"
+// are all other sessions of the user, newest first.
 func (h *HandlerContext) renderLoggedIn(c *gin.Context, code int, session *cookie.Session, alerts []ui.Alert) {
-	tmplCtx := pongo2.Context{"login": h.conf.Login, "session": session}
+	tmplCtx := pongo2.Context{
+		"login":         h.conf.Login,
+		"session":       session,
+		"cookie_domain": strings.TrimPrefix(h.cookies.Options().Domain, "."),
+	}
 	if sessions, err := h.cookies.ListUser(session.Username); err == nil {
-		tmplCtx["sessions"] = sessions
+		var others cookie.SessionFullList
+		for _, s := range sessions {
+			if s.ID == session.ID {
+				tmplCtx["current"] = s
+			} else {
+				others = append(others, s)
+			}
+		}
+		// ULIDs sort by the time they were created at
+		sort.Slice(others, func(i, j int) bool { return others[i].ID.Compare(others[j].ID) > 0 })
+		tmplCtx["others"] = others
 	} else {
-		alerts = append(alerts, ui.Alert{Level: ui.AlertDanger, Heading: "failed to load user sessions", Message: err.Error()})
+		alerts = append(alerts, ui.Alert{Level: ui.AlertDanger, Heading: "Failed to load the sessions", Message: err.Error()})
 	}
 	tmplCtx["alerts"] = alerts
 	c.HTML(code, "logged-in.htmpl", tmplCtx)
@@ -282,7 +300,7 @@ func (h *HandlerContext) setSessionCookie(c *gin.Context, value string, maxAge i
 func (h *HandlerContext) logout(c *gin.Context, redirect string) {
 	if session, err := h.verifyCookie(c); err == nil {
 		if err = h.cookies.Revoke(*session); err != nil {
-			alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
+			alert := ui.Alert{Level: ui.AlertDanger, Heading: "Failed to revoke the session", Message: err.Error()}
 			h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
 			return
 		}
@@ -325,12 +343,12 @@ func (h *HandlerContext) handleLogoutPost(c *gin.Context) {
 	}
 	id, err := ulid.ParseStrict(idParam)
 	if err != nil {
-		alert := ui.Alert{Level: ui.AlertDanger, Heading: "invalid session", Message: err.Error()}
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "Invalid session", Message: err.Error()}
 		h.renderLoggedIn(c, http.StatusBadRequest, session, []ui.Alert{alert})
 		return
 	}
 	if err = h.cookies.RevokeID(session.Username, id); err != nil {
-		alert := ui.Alert{Level: ui.AlertDanger, Heading: "failed to revoke session", Message: err.Error()}
+		alert := ui.Alert{Level: ui.AlertDanger, Heading: "Failed to revoke the session", Message: err.Error()}
 		h.renderLoggedIn(c, http.StatusInternalServerError, session, []ui.Alert{alert})
 		return
 	}
