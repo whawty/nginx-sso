@@ -80,7 +80,7 @@ func TestSecurityHeaders(t *testing.T) {
 	want, _ := contentSecurityPolicy("example.com")
 	session := login(t, h, "/sso/login")
 
-	for _, target := range []string{"/sso/login", "/sso/ui/css/main.css", "/sso/auth", "/sso/nonexistent", "/"} {
+	for _, target := range []string{"/sso/login", "/sso/ui/css/base.css", "/sso/auth", "/sso/nonexistent", "/"} {
 		for _, cookies := range [][]*http.Cookie{nil, {session}} {
 			rec := request(h, http.MethodGet, target, nil, cookies...)
 			for header, value := range map[string]string{
@@ -164,8 +164,9 @@ func TestUIAssetsAreSelfContained(t *testing.T) {
 		}
 	}
 
+	// The Content-Security-Policy only allows styles and images of the web
+	// interface: no scripts, fonts or data: URIs.
 	cssURL := regexp.MustCompile(`url\(\s*("[^"]*"|'[^']*'|[^)'"\s]*)\s*\)`)
-	absoluteURL := regexp.MustCompile(`https?://`)
 	err := fs.WalkDir(ui.Assets, ".", func(name string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -178,22 +179,15 @@ func TestUIAssetsAreSelfContained(t *testing.T) {
 		case ".css":
 			for _, m := range cssURL.FindAllStringSubmatch(string(content), -1) {
 				target := strings.Trim(m[1], `"'`)
-				if strings.HasPrefix(target, "data:") {
-					continue
-				}
 				if u, err := url.Parse(target); err != nil || u.Scheme != "" || u.Host != "" || strings.HasPrefix(u.Path, "/") {
-					t.Errorf("%s: url(%s) is not relative", name, target)
+					t.Errorf("%s: url(%s) is not a relative URL", name, target)
 				} else if !exists(path.Join(path.Dir(name), u.Path)) {
 					t.Errorf("%s: url(%s) does not exist", name, target)
 				}
 			}
-		case ".js":
-			// the vendored scripts mention URLs in comments and messages
-			if !strings.HasPrefix(name, "bootstrap/") {
-				if m := absoluteURL.FindString(string(content)); m != "" {
-					t.Errorf("%s: contains absolute URL", name)
-				}
-			}
+		case ".svg", ".png", ".ico", ".txt", "": // images and license files
+		default:
+			t.Errorf("%s: the Content-Security-Policy doesn't allow to use this kind of file", name)
 		}
 		return nil
 	})

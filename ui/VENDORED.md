@@ -17,10 +17,6 @@ To add an icon or update Lucide or Font Awesome, change `UI_ICONS` or the
 
 `css/base.css` is shared with whawty.auth and kept the same in both projects.
 
-The files in `bootstrap/` (Bootstrap 5.0.2) and `fontawesome/` (Font Awesome
-Free 6.4.0) are only used by the old templates and are removed together with
-them.
-
 SHA-256:
 
 ```

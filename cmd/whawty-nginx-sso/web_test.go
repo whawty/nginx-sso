@@ -190,7 +190,7 @@ func TestWebHandlerRoutes(t *testing.T) {
 		{http.MethodGet, "/sso", http.StatusSeeOther, "sso/"},
 		{http.MethodGet, "/sso/", http.StatusSeeOther, "login"},
 		{http.MethodGet, "/sso/login", http.StatusOK, ""},
-		{http.MethodGet, "/sso/ui/css/main.css", http.StatusOK, ""},
+		{http.MethodGet, "/sso/ui/css/base.css", http.StatusOK, ""},
 		{http.MethodGet, "/sso/ui/login.htmpl", http.StatusNotFound, ""}, // templates are not served
 		{http.MethodGet, "/sso/ui/../templates/login.htmpl", http.StatusNotFound, ""},
 		{http.MethodGet, "/sso/auth", http.StatusUnauthorized, ""},
@@ -201,7 +201,7 @@ func TestWebHandlerRoutes(t *testing.T) {
 		{http.MethodGet, "/", http.StatusNotFound, ""},
 		{http.MethodGet, "/login", http.StatusNotFound, ""},
 		{http.MethodGet, "/auth", http.StatusNotFound, ""},
-		{http.MethodGet, "/ui/css/main.css", http.StatusNotFound, ""},
+		{http.MethodGet, "/ui/css/base.css", http.StatusNotFound, ""},
 		{http.MethodGet, "/ssox/login", http.StatusNotFound, ""},
 		// no absolute redirects to fix up trailing slashes
 		{http.MethodGet, "/sso/login/", http.StatusNotFound, ""},
@@ -221,7 +221,7 @@ func TestWebHandlerBehindStrippingProxy(t *testing.T) {
 	checkRoutes(t, h, []routeTest{
 		{http.MethodGet, "/", http.StatusSeeOther, "login"},
 		{http.MethodGet, "/login", http.StatusOK, ""},
-		{http.MethodGet, "/ui/css/main.css", http.StatusOK, ""},
+		{http.MethodGet, "/ui/css/base.css", http.StatusOK, ""},
 		{http.MethodGet, "/auth", http.StatusUnauthorized, ""},
 		{http.MethodGet, "/logout", http.StatusSeeOther, "login"},
 	})

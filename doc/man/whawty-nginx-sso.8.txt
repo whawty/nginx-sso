@@ -99,11 +99,68 @@ Form posts which other sites make on behalf of users are rejected. Browsers whic
 the header Sec-Fetch-Site are checked by comparing the Origin header with the Host header, so
 the reverse proxy should pass the Host header on (for nginx 'proxy_set_header Host $host;').
 
-All responses carry a Content-Security-Policy which only allows scripts, styles, images and
-fonts of the web interface itself and no inline scripts or styles. Forms may only be sent to the
-web interface, which may redirect to the cookie domain and its subdomains. The pages must not be
-embedded by other sites. Custom templates (*web.login.templates*) have to stay within these
-limits as well.
+All responses carry a Content-Security-Policy which only allows styles and images of the web
+interface itself, no scripts at all and no inline styles. Forms may only be sent to the web
+interface, which may redirect to the cookie domain and its subdomains. The pages must not be
+embedded by other sites. Custom templates (see TEMPLATES) have to stay within these limits as
+well.
+
+The colours of the web interface can be changed without rebuilding *whawty-nginx-sso*: the
+pages load '<base-path>/ui/css/theme.css' last, which is empty, so the reverse proxy can serve
+a replacement for it. See the comment in ui/assets/css/theme.css of the sources for an example.
+
+
+TEMPLATES
+---------
+
+*web.login.templates* replaces the built-in templates with the files login.htmpl and
+logged-in.htmpl from the given directory. They are pongo2 templates (a syntax like the one of
+Django templates), the built-in ones in ui/templates of the sources are a good starting point.
+Values are escaped automatically.
+
+All links must be relative. The static files of the web interface are available below 'ui/',
+i.e. 'ui/css/base.css', 'ui/css/app.css', 'ui/css/theme.css', 'ui/img/favicon.svg' and the
+icons as '<svg><use href="ui/vendor/icons.svg#<icon>"/></svg>'. The login form is a POST
+request to 'login' with the fields *username*, *password* and *redirect*. Other sessions are
+revoked with POST requests to 'logout' with the field *id*, 'logout' logs out of the own session.
+
+login.htmpl gets these values:
+
+*login.Title*::
+    The title configured with *web.login.title*.
+
+*redirect*::
+    Where to send users after logging in, already checked to be safe. Put it into the field
+    *redirect* of the form.
+
+*redirect_host*::
+    The host of *redirect* if it is a URL.
+
+*cookie_domain*::
+    The cookie domain, if one is configured.
+
+*username*::
+    The username of a failed login attempt.
+
+*alerts*::
+    A list of errors to show. Each has *Heading*, *Message* and *Level* (danger, warning, success
+    or info), *Class()* returns the CSS class and *Icon()* the name of the icon for it.
+
+logged-in.htmpl gets *login.Title*, *cookie_domain* and *alerts* as well as:
+
+*session*::
+    The session of the request with *Username*, *ID*, *CreatedAt()* and *ExpiresAt()*.
+
+*current*::
+    The same session including *Agent*, the browser it was created with: *Agent.Name*,
+    *Agent.OS* and *Agent.DeviceType*. It may be missing.
+
+*others*::
+    The other sessions of the user, newest first, with the same values as *current*.
+
+Besides the built-in filters of pongo2 the templates can use *timesince* and *timeuntil*, which
+turn times into "2 hours ago" and "6 days from now", and *ua_icon*: '{{ s.Agent|ua_icon:"Name" }}'
+is the name of the icon of the browser, "OS" and "DeviceType" work the same.
 
 
 BUGS
