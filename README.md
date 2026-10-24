@@ -32,3 +32,8 @@ multi-factor authentication as long as the authentication backend supports it.
     3-clause BSD
 
     © 2023-2026 whawty contributors (see AUTHORS file)
+
+    The web interface of whawty-nginx-sso contains icons from Lucide,
+    https://lucide.dev (ISC License, some icons MIT License) and
+    Font Awesome Free, https://fontawesome.com/ (CC BY 4.0). See
+    ui/VENDORED.md for details on all third-party files.
