@@ -33,4 +33,4 @@ multi-factor authentication as long as the authentication backend supports it.
 
     3-clause BSD
 
-    © 2023 whawty contributors (see AUTHORS file)
+    © 2023-2026 whawty contributors (see AUTHORS file)
