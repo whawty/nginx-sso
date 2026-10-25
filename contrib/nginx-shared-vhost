@@ -26,6 +26,8 @@ server {
   auth_request_set $whawty_sso_login_redir $upstream_http_x_login_redir;
 
   location /sso/ {
+    # the login form must be reachable without being logged in
+    auth_request off;
     # no URI after the address, so the path is passed on as is
     proxy_pass http://127.0.0.1:1234;
     # needed to check where form posts come from in browsers which don't send Sec-Fetch-Site
