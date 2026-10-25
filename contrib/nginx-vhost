@@ -12,8 +12,11 @@ server {
   location / {
     auth_request /auth;
 
-    # pass the X-Username header on to the protected service
+    # pass the X-Username header on to the protected service, the first set_header
+    # directive guards agains an undefined $username variable and makes sure that the
+    # header gets stripped in that case.
     auth_request_set $username $upstream_http_x_username;
+    proxy_set_header X-Username "";
     proxy_set_header X-Username $username;
     # the URL of this request escaped for the login form, see @error401
     auth_request_set $login_redir $upstream_http_x_login_redir;
