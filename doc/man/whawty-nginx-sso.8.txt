@@ -63,7 +63,10 @@ prometheus endpoint uses the path configured for it as is.
 
 *<base-path>/login*::
     The login form, or the list of sessions of the user if the request carries a valid session
-    cookie. The query parameter *redir* says where to send users after logging in.
+    cookie. The query parameter *redir* says where to send users after logging in. Users who
+    are logged in already are sent there right away, i.e. when they reload a login form they
+    opened before logging in elsewhere. A service which doesn't accept the session (because of
+    a misconfiguration) sends them straight back, browsers stop such redirect loops.
 
 *<base-path>/logout*::
     Logs users out of the session of the request and sends them to the query parameter *redir*

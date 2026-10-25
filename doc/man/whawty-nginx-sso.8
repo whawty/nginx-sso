@@ -2,12 +2,12 @@
 .\"     Title: whawty-nginx-sso
 .\"    Author: [see the "AUTHORS" section]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 10/24/2026
+.\"      Date: 10/25/2026
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "WHAWTY\-NGINX\-SSO" "8" "10/24/2026" "\ \&" "\ \&"
+.TH "WHAWTY\-NGINX\-SSO" "8" "10/25/2026" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -62,7 +62,7 @@ The web interface and the endpoints for nginx are served on the address configur
 .RS 4
 The login form, or the list of sessions of the user if the request carries a valid session cookie\&. The query parameter
 \fBredir\fR
-says where to send users after logging in\&.
+says where to send users after logging in\&. Users who are logged in already are sent there right away, i\&.e\&. when they reload a login form they opened before logging in elsewhere\&. A service which doesn\(cqt accept the session (because of a misconfiguration) sends them straight back, browsers stop such redirect loops\&.
 .RE
 .PP
 \fB<base\-path>/logout\fR

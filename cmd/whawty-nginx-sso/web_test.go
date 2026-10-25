@@ -697,3 +697,31 @@ func TestLoggedInPage(t *testing.T) {
 		t.Errorf("three sessions: Firefox shows up %d times, want only for this device", n)
 	}
 }
+
+// Users who are logged in already are sent on to the redirect target.
+func TestLoginRedirectsLoggedInUsers(t *testing.T) {
+	h := newTestHandler(t, WebConfig{}, "example.com")
+	session := login(t, h, "/login")
+	loginURL := func(target string) string { return "/login?redir=" + url.QueryEscape(target) }
+
+	for _, target := range []string{"https://wiki.example.com/x?a=1&b=2", "/grafana/"} {
+		rec := request(h, http.MethodGet, loginURL(target), nil, session)
+		if loc := rec.Header().Get("Location"); rec.Code != http.StatusSeeOther || loc != target {
+			t.Errorf("logged in, target %q: got status %d and Location %q, want %d and the target", target, rec.Code, loc, http.StatusSeeOther)
+		}
+	}
+
+	// unsafe targets and none at all show the sessions
+	for _, target := range []string{"https://evil.com/", ""} {
+		rec := request(h, http.MethodGet, loginURL(target), nil, session)
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `id="other-sessions"`) {
+			t.Errorf("logged in, target %q: got status %d, want %d and the sessions", target, rec.Code, http.StatusOK)
+		}
+	}
+
+	// not logged in: the login form with the target
+	rec := request(h, http.MethodGet, loginURL("https://wiki.example.com/x"), nil)
+	if body := rec.Body.String(); rec.Code != http.StatusOK || !strings.Contains(body, `value="https://wiki.example.com/x"`) {
+		t.Errorf("not logged in: got status %d, want %d and the login form with the target", rec.Code, http.StatusOK)
+	}
+}

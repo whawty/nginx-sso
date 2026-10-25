@@ -227,14 +227,25 @@ func (h *HandlerContext) handleAuth(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// handleLoginGet shows the login form, or the sessions of the user if the
+// request has a valid session. Users who are logged in already and have a
+// redirect target are sent on to it right away, i.e. when they reload a login
+// form they opened before logging in elsewhere. A service which doesn't accept
+// the session (a misconfiguration) sends them straight back here, browsers
+// stop such redirect loops after a few rounds.
 func (h *HandlerContext) handleLoginGet(c *gin.Context) {
-	if session, err := h.verifyCookie(c); err == nil {
-		h.renderLoggedIn(c, http.StatusOK, session, nil)
-		return
-	}
-
 	redirect, _ := c.GetQuery("redir")
-	h.renderLogin(c, http.StatusOK, h.redirectTarget(c, redirect), "", nil)
+	redirect = h.redirectTarget(c, redirect)
+
+	session, err := h.verifyCookie(c)
+	switch {
+	case err != nil:
+		h.renderLogin(c, http.StatusOK, redirect, "", nil)
+	case redirect != "":
+		relativeRedirect(c, http.StatusSeeOther, redirect)
+	default:
+		h.renderLoggedIn(c, http.StatusOK, session, nil)
+	}
 }
 
 // renderLogin shows the login form. redirect must be safe already (see
