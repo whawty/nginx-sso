@@ -27,7 +27,6 @@ a.btn { text-decoration: none; }
 /* --- Sessions --------------------------------------------------------- */
 
 .block + .block { margin-top: 2.25rem; }
-.block > .alert { margin-bottom: 0.75rem; }
 
 .monogram .icon { width: 1.15rem; height: 1.15rem; }
 

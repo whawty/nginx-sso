@@ -725,3 +725,35 @@ func TestLoginRedirectsLoggedInUsers(t *testing.T) {
 		t.Errorf("not logged in: got status %d, want %d and the login form with the target", rec.Code, http.StatusOK)
 	}
 }
+
+// An unsafe redirect target is ignored, and the page says so without
+// repeating it.
+func TestIgnoredRedirectAlert(t *testing.T) {
+	h := newTestHandler(t, WebConfig{}, "example.com")
+	session := login(t, h, "/login")
+	evil := "/login?redir=" + url.QueryEscape("https://evil.com/call-us-at-555")
+	want := `<strong>Redirect ignored:</strong> The link which brought you here points to an address outside of example.com, so you are not sent on to it.`
+
+	for name, cookies := range map[string][]*http.Cookie{"login form": nil, "sessions": {session}} {
+		body := request(h, http.MethodGet, evil, nil, cookies...).Body.String()
+		if !strings.Contains(body, want) || !strings.Contains(body, `class="alert alert-warning"`) {
+			t.Errorf("%s: page does not warn about the ignored redirect target", name)
+		}
+		if strings.Contains(body, "evil.com") || strings.Contains(body, "555") {
+			t.Errorf("%s: page contains the ignored redirect target", name)
+		}
+	}
+
+	// safe targets and none at all: no warning
+	for _, target := range []string{"/login", "/login?redir=" + url.QueryEscape("https://wiki.example.com/")} {
+		if body := request(h, http.MethodGet, target, nil).Body.String(); strings.Contains(body, "Redirect ignored") {
+			t.Errorf("%s: page warns about an ignored redirect target", target)
+		}
+	}
+
+	// without a cookie domain only this site is safe
+	h = newTestHandler(t, WebConfig{}, "")
+	if body := request(h, http.MethodGet, evil, nil).Body.String(); !strings.Contains(body, "an address outside of this site, so") {
+		t.Error("no cookie domain: page does not warn about the ignored redirect target")
+	}
+}

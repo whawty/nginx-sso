@@ -101,7 +101,7 @@ The revoked sessions for other instances, see
 as bearer token\&.
 .RE
 .sp
-Users are only sent on to paths on the same host and to http(s) URLs of hosts which get the session cookie: the cookie domain (\fBcookie\&.domain\fR) and its subdomains, or the host the request was sent to if no cookie domain is configured\&. Other targets are ignored\&.
+Users are only sent on to paths on the same host and to http(s) URLs of hosts which get the session cookie: the cookie domain (\fBcookie\&.domain\fR) and its subdomains, or the host the request was sent to if no cookie domain is configured\&. Other targets are ignored, and the page shows a warning instead\&.
 .sp
 All links and redirects of the web interface are relative\&. If a reverse proxy strips a path prefix before passing requests on, leave \fBweb\&.base\-path\fR unset\&. Set it if the proxy passes the prefix on, i\&.e\&. for nginx \fIlocation /sso/ { proxy_pass \fR\fIhttp://127\&.0\&.0\&.1:1234\fR\fI; }\fR and \fIweb\&.base\-path: /sso\fR\&. See contrib/nginx\-vhost and contrib/nginx\-shared\-vhost for examples\&.
 .sp

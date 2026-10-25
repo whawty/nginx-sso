@@ -91,7 +91,8 @@ prometheus endpoint uses the path configured for it as is.
 
 Users are only sent on to paths on the same host and to http(s) URLs of hosts which get the
 session cookie: the cookie domain (*cookie.domain*) and its subdomains, or the host the request
-was sent to if no cookie domain is configured. Other targets are ignored.
+was sent to if no cookie domain is configured. Other targets are ignored, and the page shows a
+warning instead.
 
 All links and redirects of the web interface are relative. If a reverse proxy strips a path
 prefix before passing requests on, leave *web.base-path* unset. Set it if the proxy passes the

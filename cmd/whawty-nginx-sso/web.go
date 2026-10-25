@@ -232,19 +232,40 @@ func (h *HandlerContext) handleAuth(c *gin.Context) {
 // redirect target are sent on to it right away, i.e. when they reload a login
 // form they opened before logging in elsewhere. A service which doesn't accept
 // the session (a misconfiguration) sends them straight back here, browsers
-// stop such redirect loops after a few rounds.
+// stop such redirect loops after a few rounds. If the redirect target is not
+// safe the page says so.
 func (h *HandlerContext) handleLoginGet(c *gin.Context) {
-	redirect, _ := c.GetQuery("redir")
-	redirect = h.redirectTarget(c, redirect)
+	requested, _ := c.GetQuery("redir")
+	redirect := h.redirectTarget(c, requested)
+	var alerts []ui.Alert
+	if requested != "" && redirect == "" {
+		alerts = append(alerts, h.ignoredRedirectAlert())
+	}
 
 	session, err := h.verifyCookie(c)
 	switch {
 	case err != nil:
-		h.renderLogin(c, http.StatusOK, redirect, "", nil)
+		h.renderLogin(c, http.StatusOK, redirect, "", alerts)
 	case redirect != "":
 		relativeRedirect(c, http.StatusSeeOther, redirect)
 	default:
-		h.renderLoggedIn(c, http.StatusOK, session, nil)
+		h.renderLoggedIn(c, http.StatusOK, session, alerts)
+	}
+}
+
+// ignoredRedirectAlert tells users that they are not sent on to the redirect
+// target of the link which brought them to the login page, because it is not
+// safe. The target itself is left out, so a link can't put text of its choice
+// on the page.
+func (h *HandlerContext) ignoredRedirectAlert() ui.Alert {
+	where := "this site"
+	if domain := strings.TrimPrefix(h.cookies.Options().Domain, "."); domain != "" {
+		where = domain
+	}
+	return ui.Alert{
+		Level:   ui.AlertWarning,
+		Heading: "Redirect ignored",
+		Message: "The link which brought you here points to an address outside of " + where + ", so you are not sent on to it.",
 	}
 }
 

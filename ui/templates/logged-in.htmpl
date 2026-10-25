@@ -35,6 +35,17 @@
         <p class="description">Your login is valid for all services on <span class="target">{{ cookie_domain }}</span>.</p>
 {% endif %}
       </header>
+{% if alerts %}
+
+      <div class="block stack">
+{% for alert in alerts %}
+        <div class="alert {{ alert.Class() }}" role="alert">
+          {{ icon(alert.Icon()) }}
+          <span><strong>{{ alert.Heading }}:</strong> {{ alert.Message }}</span>
+        </div>
+{% endfor %}
+      </div>
+{% endif %}
 
       <section id="this-device" class="block" aria-labelledby="this-device-title">
         <div class="section-head"><h2 id="this-device-title" class="section-title">This device</h2></div>
@@ -60,12 +71,6 @@
 
       <section id="other-sessions" class="block" aria-labelledby="other-sessions-title">
         <div class="section-head"><h2 id="other-sessions-title" class="section-title">Other sessions <span class="count">{{ others|length }}</span></h2></div>
-{% for alert in alerts %}
-        <div class="alert {{ alert.Class() }}" role="alert">
-          {{ icon(alert.Icon()) }}
-          <span><strong>{{ alert.Heading }}:</strong> {{ alert.Message }}</span>
-        </div>
-{% endfor %}
         <div class="surface">
 {% if others %}
           <ul class="rows">
